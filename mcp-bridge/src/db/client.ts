@@ -35,10 +35,12 @@ export interface DbClient {
   getMessagesByConversation(conversation: string): MessageRow[];
   getUnreadMessages(recipient: string): MessageRow[];
   markRead(id: string): void;
+  markAllRead(recipient: string): void;
   insertTask(task: Omit<TaskRow, "id" | "created_at" | "updated_at" | "status">): TaskRow;
   getTask(id: string): TaskRow | undefined;
   getTasksByConversation(conversation: string): TaskRow[];
   updateTaskStatus(id: string, status: TaskRow["status"], analysis?: string): void;
+  transaction<T>(fn: () => T): T;
 }
 
 export function createDbClient(db: Database.Database): DbClient {
@@ -104,6 +106,11 @@ export function createDbClient(db: Database.Database): DbClient {
       stmts.markRead.run({ id, read_at: new Date().toISOString() });
     },
 
+    markAllRead(recipient) {
+      db.prepare(`UPDATE messages SET read_at = @read_at WHERE recipient = @recipient AND read_at IS NULL`)
+        .run({ recipient, read_at: new Date().toISOString() });
+    },
+
     insertTask(task) {
       const row: TaskRow = {
         ...task,
@@ -131,6 +138,10 @@ export function createDbClient(db: Database.Database): DbClient {
         analysis: analysis ?? null,
         updated_at: new Date().toISOString(),
       });
+    },
+
+    transaction<T>(fn: () => T): T {
+      return db.transaction(fn)();
     },
   };
 }

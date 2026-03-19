@@ -1,4 +1,4 @@
-import type { DbClient, MessageRow } from "../../db/client.js";
+import type { DbClient } from "../../db/client.js";
 import type { AppResult } from "../result.js";
 import { ok, err, ERROR_CODE } from "../result.js";
 
@@ -20,18 +20,7 @@ export function reportStatus(
   db: DbClient,
   input: ReportStatusInput,
 ): AppResult<ReportStatusResult> {
-  // Insert the status message
-  const msg = db.insertMessage({
-    conversation: input.conversation,
-    sender: input.sender,
-    recipient: input.recipient,
-    kind: "status",
-    payload: input.payload,
-    meta_prompt: null,
-  });
-
-  // Update the task if a task_id was provided
-  let taskUpdated = false;
+  // Validate task existence before any writes
   if (input.task_id) {
     const task = db.getTask(input.task_id);
     if (!task) {
@@ -41,12 +30,27 @@ export function reportStatus(
         statusHint: 404,
       });
     }
-    db.updateTaskStatus(input.task_id, input.status, input.payload);
-    taskUpdated = true;
   }
 
-  return ok({
-    message_id: msg.id,
-    task_updated: taskUpdated,
+  // Wrap both operations in a transaction for atomicity
+  const result = db.transaction(() => {
+    const msg = db.insertMessage({
+      conversation: input.conversation,
+      sender: input.sender,
+      recipient: input.recipient,
+      kind: "status",
+      payload: input.payload,
+      meta_prompt: null,
+    });
+
+    let taskUpdated = false;
+    if (input.task_id) {
+      db.updateTaskStatus(input.task_id, input.status, input.payload);
+      taskUpdated = true;
+    }
+
+    return { message_id: msg.id, task_updated: taskUpdated };
   });
+
+  return ok(result);
 }

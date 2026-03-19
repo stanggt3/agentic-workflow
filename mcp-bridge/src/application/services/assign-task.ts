@@ -12,28 +12,32 @@ export interface AssignTaskInput {
 }
 
 export function assignTask(db: DbClient, input: AssignTaskInput): AppResult<TaskRow> {
-  const row = db.insertTask({
-    conversation: input.conversation,
-    domain: input.domain,
-    summary: input.summary,
-    details: input.details,
-    analysis: input.analysis ?? null,
-    assigned_to: input.assigned_to ?? null,
-  });
-
-  // Also insert a message so the conversation log captures the assignment
-  db.insertMessage({
-    conversation: input.conversation,
-    sender: "system",
-    recipient: input.assigned_to ?? "unassigned",
-    kind: "task",
-    payload: JSON.stringify({
-      task_id: row.id,
+  // Wrap task + message insertion in a transaction for atomicity
+  const row = db.transaction(() => {
+    const task = db.insertTask({
+      conversation: input.conversation,
       domain: input.domain,
       summary: input.summary,
       details: input.details,
-    }),
-    meta_prompt: null,
+      analysis: input.analysis ?? null,
+      assigned_to: input.assigned_to ?? null,
+    });
+
+    db.insertMessage({
+      conversation: input.conversation,
+      sender: "system",
+      recipient: input.assigned_to ?? "unassigned",
+      kind: "task",
+      payload: JSON.stringify({
+        task_id: task.id,
+        domain: input.domain,
+        summary: input.summary,
+        details: input.details,
+      }),
+      meta_prompt: null,
+    });
+
+    return task;
   });
 
   return ok(row);

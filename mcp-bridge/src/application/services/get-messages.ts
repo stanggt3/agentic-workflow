@@ -14,10 +14,13 @@ export function getUnreadMessages(
   db: DbClient,
   recipient: string,
 ): AppResult<MessageRow[]> {
-  const rows = db.getUnreadMessages(recipient);
-  // Mark as read on retrieval
-  for (const row of rows) {
-    db.markRead(row.id);
-  }
+  // Atomic: fetch unread then bulk mark-read in a transaction
+  const rows = db.transaction(() => {
+    const unread = db.getUnreadMessages(recipient);
+    if (unread.length > 0) {
+      db.markAllRead(recipient);
+    }
+    return unread;
+  });
   return ok(rows);
 }

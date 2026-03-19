@@ -8,6 +8,15 @@ const PORT = parseInt(process.env["PORT"] ?? "3100", 10);
 const HOST = process.env["HOST"] ?? "127.0.0.1";
 const DB_PATH = process.env["DB_PATH"];
 
+const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
+if (!LOOPBACK.has(HOST) && !process.env["ALLOW_REMOTE"]) {
+  console.error(
+    `Refusing to bind to ${HOST} — this server has no authentication.\n` +
+    `Set ALLOW_REMOTE=1 to override (not recommended for untrusted networks).`,
+  );
+  process.exit(1);
+}
+
 async function main() {
   const database = createDatabase(DB_PATH);
   const db = createDbClient(database);

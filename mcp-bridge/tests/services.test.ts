@@ -1,42 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { createDbClient, type DbClient } from "../src/db/client.js";
+import { MIGRATIONS } from "../src/db/schema.js";
 import { sendContext } from "../src/application/services/send-context.js";
 import { getMessagesByConversation, getUnreadMessages } from "../src/application/services/get-messages.js";
 import { assignTask } from "../src/application/services/assign-task.js";
 import { reportStatus } from "../src/application/services/report-status.js";
 import { randomUUID } from "node:crypto";
-
-const MIGRATIONS = `
-CREATE TABLE IF NOT EXISTS messages (
-  id            TEXT PRIMARY KEY,
-  conversation  TEXT NOT NULL,
-  sender        TEXT NOT NULL,
-  recipient     TEXT NOT NULL,
-  kind          TEXT NOT NULL CHECK (kind IN ('context', 'task', 'status', 'reply')),
-  payload       TEXT NOT NULL,
-  meta_prompt   TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  read_at       TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation);
-CREATE INDEX IF NOT EXISTS idx_messages_recipient    ON messages(recipient, read_at);
-
-CREATE TABLE IF NOT EXISTS tasks (
-  id              TEXT PRIMARY KEY,
-  conversation    TEXT NOT NULL,
-  domain          TEXT NOT NULL,
-  summary         TEXT NOT NULL,
-  details         TEXT NOT NULL,
-  analysis        TEXT,
-  assigned_to     TEXT,
-  status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
-  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_tasks_conversation ON tasks(conversation);
-CREATE INDEX IF NOT EXISTS idx_tasks_status       ON tasks(status);
-`;
 
 let db: DbClient;
 
@@ -113,7 +83,7 @@ describe("getUnreadMessages", () => {
 });
 
 describe("assignTask", () => {
-  it("creates a task and a conversation message", () => {
+  it("creates a task and a conversation message atomically", () => {
     const conv = randomUUID();
     const result = assignTask(db, {
       conversation: conv,
@@ -167,7 +137,7 @@ describe("reportStatus", () => {
     expect(task?.status).toBe("completed");
   });
 
-  it("returns error for unknown task_id", () => {
+  it("returns error for unknown task_id without inserting a message", () => {
     const conv = randomUUID();
     const result = reportStatus(db, {
       conversation: conv,
@@ -181,5 +151,11 @@ describe("reportStatus", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe("NOT_FOUND");
+
+    // Verify no orphaned message was created
+    const msgs = getMessagesByConversation(db, conv);
+    expect(msgs.ok).toBe(true);
+    if (!msgs.ok) return;
+    expect(msgs.data).toHaveLength(0);
   });
 });

@@ -2,6 +2,12 @@
 
 A portable Claude Code workflow toolkit: custom skills, configuration archive, repo bootstrapper, and a bidirectional MCP bridge for multi-agent communication.
 
+## Prerequisites
+
+- Node.js >= 20
+- [Claude Code](https://claude.com/claude-code) installed
+- [GitHub CLI (`gh`)](https://cli.github.com/) installed and authenticated (required by review skills)
+
 ## Contents
 
 ### 1. Skills & Config Archive
@@ -34,28 +40,26 @@ A TypeScript MCP server for bidirectional multi-agent communication.
 **MCP Tools:**
 - `send_context` — Send task context + meta-prompt between agents
 - `get_messages` — Retrieve conversation history by UUID
+- `get_unread` — Check for unread messages (marks as read on retrieval)
 - `assign_task` — Assign tasks with domain and implementation details
 - `report_status` — Report back with feedback or completion
 
 **Features:**
 - SQLite store-and-forward (messages queue when recipient is offline)
 - Conversation continuity via UUID
-- Fastify REST API + MCP stdio server
+- Fastify REST API (port 3100) + MCP stdio server
 - Full end-to-end type safety with `AppResult<T>` pattern
+- Atomic transactions for multi-step operations
 
 ## Setup
 
 ```bash
-# Clone and run setup
-git clone <this-repo> ~/repos/agentic-workflow
+git clone https://github.com/joi-fairshare/agentic-workflow.git ~/repos/agentic-workflow
 cd ~/repos/agentic-workflow
 ./setup.sh
-
-# Install MCP bridge
-cd mcp-bridge
-npm install
-npm run build
 ```
+
+The setup script symlinks skills into `~/.claude/skills/`, copies config files, and installs MCP bridge dependencies.
 
 ### Register MCP Server with Claude Code
 
@@ -70,6 +74,15 @@ cd mcp-bridge
 npm start          # Fastify on http://127.0.0.1:3100
 ```
 
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3100` | REST API port |
+| `HOST` | `127.0.0.1` | Bind address (loopback only by default) |
+| `DB_PATH` | `./bridge.db` | SQLite database file path |
+| `ALLOW_REMOTE` | unset | Set to `1` to allow non-loopback binding |
+
 ## Architecture
 
 ```
@@ -83,11 +96,12 @@ agentic-workflow/
 ├── config/                    # Settings & MCP config archive
 ├── mcp-bridge/                # MCP bridge application
 │   └── src/
-│       ├── application/       # AppResult, services
-│       ├── db/                # SQLite schema & client
-│       ├── transport/         # Typed router, schemas, controllers
-│       ├── routes/            # Route factories
-│       ├── server.ts          # Fastify server
-│       └── mcp.ts             # MCP stdio server
+│       ├── application/       # AppResult<T>, services (never throw)
+│       ├── db/                # SQLite schema, client interface, transactions
+│       ├── transport/         # Typed router, Zod schemas, controllers
+│       ├── routes/            # Route factories (wire schemas to handlers)
+│       ├── server.ts          # Fastify server factory
+│       ├── mcp.ts             # MCP stdio server (5 tools)
+│       └── index.ts           # REST API entry point
 └── setup.sh                   # One-command setup script
 ```

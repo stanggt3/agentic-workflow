@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { join } from "node:path";
 
-const MIGRATIONS = `
+export const MIGRATIONS = `
 CREATE TABLE IF NOT EXISTS messages (
   id            TEXT PRIMARY KEY,
   conversation  TEXT NOT NULL,
