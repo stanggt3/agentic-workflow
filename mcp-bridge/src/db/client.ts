@@ -30,6 +30,13 @@ export interface TaskRow {
 
 // ── Database client ────────────────────────────────────────
 
+export interface ConversationSummary {
+  conversation: string;
+  message_count: number;
+  task_count: number;
+  last_activity: string;
+}
+
 export interface DbClient {
   insertMessage(msg: Omit<MessageRow, "id" | "created_at" | "read_at">): MessageRow;
   getMessagesByConversation(conversation: string): MessageRow[];
@@ -41,6 +48,8 @@ export interface DbClient {
   getTasksByConversation(conversation: string): TaskRow[];
   updateTaskStatus(id: string, status: TaskRow["status"], analysis?: string): void;
   transaction<T>(fn: () => T): T;
+  getConversations(limit: number, offset: number): ConversationSummary[];
+  getConversationCount(): number;
 }
 
 export function createDbClient(db: Database.Database): DbClient {
@@ -79,6 +88,32 @@ export function createDbClient(db: Database.Database): DbClient {
     updateTaskStatus: db.prepare(`
       UPDATE tasks SET status = @status, analysis = COALESCE(@analysis, analysis), updated_at = @updated_at
       WHERE id = @id
+    `),
+
+    getConversations: db.prepare(`
+      SELECT
+        conversation,
+        SUM(msg_count) as message_count,
+        SUM(task_count) as task_count,
+        MAX(last_activity) as last_activity
+      FROM (
+        SELECT conversation, COUNT(*) as msg_count, 0 as task_count, MAX(created_at) as last_activity
+        FROM messages GROUP BY conversation
+        UNION ALL
+        SELECT conversation, 0 as msg_count, COUNT(*) as task_count, MAX(updated_at) as last_activity
+        FROM tasks GROUP BY conversation
+      ) combined
+      GROUP BY conversation
+      ORDER BY last_activity DESC
+      LIMIT @limit OFFSET @offset
+    `),
+
+    getConversationCount: db.prepare(`
+      SELECT COUNT(*) as total FROM (
+        SELECT conversation FROM messages
+        UNION
+        SELECT conversation FROM tasks
+      )
     `),
   };
 
@@ -142,6 +177,15 @@ export function createDbClient(db: Database.Database): DbClient {
 
     transaction<T>(fn: () => T): T {
       return db.transaction(fn)();
+    },
+
+    getConversations(limit, offset) {
+      return stmts.getConversations.all({ limit, offset }) as ConversationSummary[];
+    },
+
+    getConversationCount() {
+      const row = stmts.getConversationCount.get() as { total: number };
+      return row.total;
     },
   };
 }

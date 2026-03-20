@@ -1,7 +1,11 @@
+import cors from "@fastify/cors";
 import { createDatabase } from "./db/schema.js";
 import { createDbClient } from "./db/client.js";
+import { createEventBus } from "./application/events.js";
 import { createMessageRoutes } from "./routes/messages.js";
 import { createTaskRoutes } from "./routes/tasks.js";
+import { createConversationRoutes } from "./routes/conversations.js";
+import { registerSseRoute } from "./routes/events.js";
 import { createServer } from "./server.js";
 
 const PORT = parseInt(process.env["PORT"] ?? "3100", 10);
@@ -20,15 +24,24 @@ if (!LOOPBACK.has(HOST) && !process.env["ALLOW_REMOTE"]) {
 async function main() {
   const database = createDatabase(DB_PATH);
   const db = createDbClient(database);
+  const eventBus = createEventBus();
 
-  const messageRoutes = createMessageRoutes(db);
-  const taskRoutes = createTaskRoutes(db);
+  const messageRoutes = createMessageRoutes(db, eventBus);
+  const taskRoutes = createTaskRoutes(db, eventBus);
+  const conversationRoutes = createConversationRoutes(db);
 
-  const server = createServer([messageRoutes, taskRoutes]);
+  const server = createServer([messageRoutes, taskRoutes, conversationRoutes]);
+
+  // CORS — allow all origins (dev tool, no auth)
+  await server.register(cors, { origin: true });
+
+  // SSE — long-lived connections, outside normal route pattern
+  registerSseRoute(server, eventBus);
 
   await server.listen({ port: PORT, host: HOST });
 
   console.log(`Bridge server running at http://${HOST}:${PORT}`);
+  console.log(`SSE stream available at http://${HOST}:${PORT}/events`);
   console.log(`MCP server available via: node dist/mcp.js`);
 }
 

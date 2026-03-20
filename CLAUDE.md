@@ -20,7 +20,8 @@ Read before making changes:
 |-------|------------|
 | Runtime | Node.js >= 20, ES2022 target |
 | Language | TypeScript 5.7, strict mode |
-| HTTP | Fastify 5 |
+| HTTP (bridge) | Fastify 5 |
+| HTTP (UI) | Next.js 15 App Router |
 | Database | SQLite via better-sqlite3, WAL mode |
 | MCP | @modelcontextprotocol/sdk (stdio transport) |
 | Validation | Zod 3 |
@@ -103,18 +104,31 @@ agentic-workflow/
 │   └── src/
 │       ├── application/       # AppResult<T> pattern, service functions (never throw)
 │       │   ├── result.ts      # ok<T>(), err<T>(), AppError, AppResult<T>
+│       │   ├── events.ts      # EventBus factory — pub/sub (message:created, task:created, task:updated)
 │       │   └── services/      # Business logic — pure functions taking DbClient
 │       ├── db/                # SQLite schema, client interface, transactions
 │       │   ├── schema.ts      # MIGRATIONS constant, createDatabase()
 │       │   └── client.ts      # DbClient interface (prepared statements, no SQL injection)
 │       ├── transport/         # Typed router, Zod schemas, controllers
 │       │   ├── types.ts       # RouteSchema, defineRoute<TSchema>()
-│       │   └── schemas/       # Zod schemas for messages and tasks
+│       │   ├── schemas/       # Zod schemas for messages, tasks, and conversations
+│       │   └── controllers/   # Controller factories (message, task, conversation)
 │       ├── routes/            # Route factories (wire schemas → handlers)
+│       │   ├── messages.ts    # POST /messages/send, GET /messages/conversation/:id, GET /messages/unread
+│       │   ├── tasks.ts       # POST /tasks/assign, GET /tasks/:id, GET /tasks/conversation/:id, POST /tasks/report
+│       │   ├── conversations.ts # GET /conversations
+│       │   └── events.ts      # GET /events (SSE, heartbeat every 30s)
 │       ├── server.ts          # Fastify server factory
 │       ├── mcp.ts             # MCP stdio server (5 tools)
-│       └── index.ts           # REST API entry point
+│       └── index.ts           # REST API entry point (creates EventBus, registers CORS + SSE)
+├── ui/                        # Next.js 15 App Router conversation dashboard
+│   └── src/
+│       ├── app/               # Pages: / (conversation list), /conversation/[id] (detail)
+│       ├── components/        # Timeline, DiagramRenderer (Mermaid), CopyButton
+│       ├── hooks/             # use-sse — EventSource hook for live updates
+│       └── lib/               # api.ts, diagrams.ts (Mermaid builders), types.ts
 ├── planning/                  # Generated project documentation
+├── start.sh                   # Start bridge + UI together
 └── setup.sh                   # One-command setup script
 ```
 
@@ -150,6 +164,18 @@ const result = db.transaction(() => {
 });
 ```
 
+### EventBus — In-process pub/sub for SSE
+
+```typescript
+import { createEventBus, type BridgeEvent } from "./application/events.js";
+
+const bus = createEventBus();
+bus.on("message:created", (event) => sseClients.forEach(c => c.send(event)));
+bus.emit({ type: "message:created", data: message });
+```
+
+Event types: `message:created`, `task:created`, `task:updated`. The EventBus is created once in `index.ts` and passed into controller factories. SSE clients subscribe via `GET /events`.
+
 ## Code Style
 
 - **ESM only** — all imports use `.js` extensions
@@ -170,8 +196,15 @@ npm test               # Vitest (all tests, in-memory SQLite)
 npm run test:watch     # Vitest watch mode
 npm run typecheck      # tsc --noEmit
 
+# UI Dashboard
+cd ui
+npm run dev            # Next.js dev server (http://localhost:3000)
+npm run build          # Production build
+npm start              # Production server
+
 # Setup (from repo root)
-./setup.sh             # Symlink skills, copy config, install deps, create output dir
+./setup.sh             # Symlink skills, copy config, install deps (bridge + UI), create output dir
+./start.sh             # Start bridge (:3100) + UI (:3000) together
 ```
 
 ## Merge Gate

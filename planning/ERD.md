@@ -103,6 +103,24 @@ Stores task assignments with domain classification, implementation details, and 
 
 ---
 
+---
+
+### Derived View: ConversationSummary
+
+Not a physical table — produced by `getConversations(limit, offset)` in `db/client.ts` using a `UNION ALL` aggregation query over both tables:
+
+| Field | Source | Description |
+|---|---|---|
+| `conversation` | messages / tasks | UUID grouping key |
+| `participants` | messages.sender + messages.recipient | Unique agent identifiers in the conversation |
+| `message_count` | COUNT of messages rows | Total message volume |
+| `task_count` | COUNT of tasks rows | Total task volume |
+| `last_activity` | MAX(created_at) across both tables | Most recent event timestamp |
+
+Results are ordered by `last_activity DESC` and support `limit` / `offset` pagination.
+
+---
+
 ## Database Configuration
 
 - **Engine:** SQLite via `better-sqlite3`

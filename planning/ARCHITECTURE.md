@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Agentic Workflow is a portable Claude Code toolkit with four independent components: 14 custom skills spanning the full development lifecycle (planning, review, debugging, QA, shipping, retrospectives), a documentation bootstrapper skill, a TypeScript MCP bridge server for inter-agent communication, and a centralized output directory for cross-skill artifact sharing. The skills are installed by symlinking into `~/.claude/skills/` and invoked as slash commands inside Claude Code sessions. The MCP bridge runs as either a stdio MCP server (registered with `claude mcp add`) or a standalone Fastify REST API, persisting messages and tasks to a local SQLite database so agents can exchange context asynchronously.
+Agentic Workflow is a portable Claude Code toolkit with four independent components: 14 custom skills spanning the full development lifecycle (planning, review, debugging, QA, shipping, retrospectives), a documentation bootstrapper skill, a TypeScript MCP bridge server for inter-agent communication, a Next.js 15 conversation dashboard UI, and a centralized output directory for cross-skill artifact sharing. The skills are installed by symlinking into `~/.claude/skills/` and invoked as slash commands inside Claude Code sessions. The MCP bridge runs as either a stdio MCP server (registered with `claude mcp add`) or a standalone Fastify REST API, persisting messages and tasks to a local SQLite database so agents can exchange context asynchronously. The UI connects to the bridge REST API and receives real-time updates via SSE.
 
 ```mermaid
 graph TD
@@ -61,6 +61,14 @@ graph TD
         MCP[mcp.ts — stdio] --> Services[Application Services]
         REST[index.ts — Fastify :3100] --> Services
         Services --> SQLite[(bridge.db)]
+        REST --> EventBus[EventBus]
+        EventBus --> SSE[GET /events — SSE stream]
+    end
+
+    subgraph "UI — Next.js :3000"
+        ConvList[Conversation List] --> |"GET /api/conversations"| REST
+        ConvDetail[Conversation Detail] --> |"GET /api/messages, /api/tasks"| REST
+        ConvList --> |"EventSource"| SSE
     end
 
     Review -.-> |"send_context / assign_task"| MCP
@@ -129,9 +137,11 @@ agentic-workflow/
 │       │   └── client.ts               #   DbClient interface — prepared statements, transactions
 │       ├── application/
 │       │   ├── result.ts               #   AppResult<T> discriminated union (ok/err, never throws)
+│       │   ├── events.ts               #   EventBus factory — pub/sub (message:created, task:created, task:updated)
 │       │   └── services/
 │       │       ├── send-context.ts     #   Insert a "context" message into a conversation
 │       │       ├── get-messages.ts     #   Fetch by conversation; fetch unread + mark-read (atomic)
+│       │       ├── get-conversations.ts #   Get paginated conversation summaries
 │       │       ├── assign-task.ts      #   Insert task + notification message (transactional)
 │       │       └── report-status.ts    #   Insert status message + update task (transactional)
 │       ├── transport/
@@ -139,15 +149,37 @@ agentic-workflow/
 │       │   ├── schemas/
 │       │   │   ├── common.ts          #   Shared Zod schemas: IdParams, ConversationParams, RecipientQuery
 │       │   │   ├── message-schemas.ts #   SendContext, GetMessages, GetUnread request/response schemas
-│       │   │   └── task-schemas.ts    #   AssignTask, GetTask, GetTasksByConversation, ReportStatus schemas
+│       │   │   ├── task-schemas.ts    #   AssignTask, GetTask, GetTasksByConversation, ReportStatus schemas
+│       │   │   └── conversation-schemas.ts  #   Zod schemas for conversation list request/response
 │       │   └── controllers/
-│       │       ├── message-controller.ts  #   Delegates to message services, maps AppResult → ApiResponse
-│       │       └── task-controller.ts     #   Delegates to task services, maps AppResult → ApiResponse
+│       │       ├── message-controller.ts      #   Delegates to message services, maps AppResult → ApiResponse
+│       │       ├── task-controller.ts         #   Delegates to task services, maps AppResult → ApiResponse
+│       │       └── conversation-controller.ts #   Delegates to conversation service, maps AppResult → ApiResponse
 │       └── routes/
 │           ├── messages.ts            #   POST /messages/send, GET /messages/conversation/:id, GET /messages/unread
-│           └── tasks.ts               #   POST /tasks/assign, GET /tasks/:id, GET /tasks/conversation/:id, POST /tasks/report
+│           ├── tasks.ts               #   POST /tasks/assign, GET /tasks/:id, GET /tasks/conversation/:id, POST /tasks/report
+│           ├── conversations.ts       #   GET /conversations (paginated summaries)
+│           └── events.ts              #   GET /events (SSE stream, heartbeat 30s)
+├── ui/                                 # Next.js 15 App Router conversation dashboard
+│   ├── next.config.ts                  #   Reverse proxy /api/* → http://localhost:3100/*
+│   └── src/
+│       ├── app/
+│       │   ├── layout.tsx             #   Dark mode layout, Inter font, Bridge UI header
+│       │   ├── page.tsx               #   Conversation list (paginated, UUID filter, SSE live)
+│       │   └── conversation/[id]/page.tsx  #   Detail: timeline (3 col) + graph + sequence diagram (2 col)
+│       ├── components/
+│       │   ├── diagram-renderer.tsx   #   Mermaid rendering abstraction (dynamic import)
+│       │   ├── timeline.tsx           #   Chronological message+task list, expand/collapse
+│       │   └── copy-button.tsx        #   Copy-to-clipboard for conversation UUIDs
+│       ├── hooks/
+│       │   └── use-sse.ts             #   EventSource hook → real-time bridge events
+│       └── lib/
+│           ├── api.ts                 #   Fetch wrappers: fetchConversations, fetchMessages, fetchTasks
+│           ├── diagrams.ts            #   Mermaid builders: buildDirectedGraph, buildSequenceDiagram
+│           └── types.ts               #   TypeScript types mirroring bridge schemas
+├── start.sh                            # Start bridge (:3100) + UI (:3000) together
 ├── setup.sh                            # One-command installer: symlinks 14 skills, copies config, creates output dir
-├── .gitignore                          # Ignores node_modules, dist, *.db, .env
+├── .gitignore                          # Ignores node_modules, dist, *.db, .env, .review-cache
 └── README.md                           # Project overview, setup instructions, env vars
 ```
 
@@ -251,7 +283,7 @@ Five tools exposed over stdio transport:
 
 ### REST API (index.ts + server.ts)
 
-Seven endpoints on Fastify (default `127.0.0.1:3100`):
+Ten endpoints on Fastify (default `127.0.0.1:3100`):
 
 | Method | Path | Handler |
 |--------|------|---------|
@@ -263,8 +295,33 @@ Seven endpoints on Fastify (default `127.0.0.1:3100`):
 | GET | `/tasks/:id` | Direct `db.getTask()` lookup |
 | GET | `/tasks/conversation/:conversation` | Direct `db.getTasksByConversation()` lookup |
 | POST | `/tasks/report` | `reportStatus` service |
+| GET | `/conversations?limit=&offset=` | `getConversations` service — paginated summaries |
+| GET | `/events` | SSE stream — emits `message:created`, `task:created`, `task:updated`; heartbeat every 30s |
 
-The server refuses to bind to non-loopback addresses unless `ALLOW_REMOTE=1` is set, since the API has no authentication.
+The server refuses to bind to non-loopback addresses unless `ALLOW_REMOTE=1` is set, since the API has no authentication. CORS is enabled (via `@fastify/cors`) to allow the local UI at `:3000` to connect.
+
+### EventBus (application/events.ts)
+
+An in-process pub/sub bus created once in `index.ts` and passed into controller factories. Controllers call `bus.emit(event)` after successful writes. The SSE route handler subscribes to all event types and forwards events to connected clients as `data:` lines. The EventBus interface:
+
+```
+createEventBus() → EventBus
+  .on(type, handler)   — subscribe
+  .off(type, handler)  — unsubscribe
+  .emit(event)         — publish
+```
+
+Event union: `BridgeEvent = MessageCreatedEvent | TaskCreatedEvent | TaskUpdatedEvent`
+
+### Component 4: UI Dashboard (ui/)
+
+A Next.js 15 App Router application that provides a visual interface for bridge activity.
+
+**Conversation list (`/`):** Paginated list of conversation summaries with participant names, message/task counts, and last-activity time. Supports UUID-based filtering. SSE via `use-sse` hook triggers refetch on `message:created`, `task:created`, and `task:updated` events.
+
+**Conversation detail (`/conversation/[id]`):** Three-panel layout: timeline (chronological messages + tasks with expand/collapse), directed graph (Mermaid `graph TD`), and sequence diagram (Mermaid `sequenceDiagram`). Diagrams are built client-side from fetched data via `src/lib/diagrams.ts`.
+
+**Reverse proxy:** `next.config.ts` proxies all `/api/*` requests to `http://localhost:3100/*`, so the UI never makes cross-origin requests to the bridge directly.
 
 ## Component 3: Config Archive (config/)
 
@@ -297,4 +354,8 @@ Archived Claude Code configuration for replication across machines:
 
 11. **SQLite is configured for concurrent access.** WAL journal mode is enabled on database creation, allowing multiple readers alongside a single writer — suitable for the bridge's pattern of multiple agents polling for unread messages.
 
-12. **Zero telemetry.** No session tracking, no analytics logging, no external service calls. Skills do not phone home. All data stays local.
+12. **SSE uses an in-process EventBus, not polling.** The `GET /events` route registers a client handler with the EventBus. Controllers emit events after successful writes. No database polling occurs — events are synchronously emitted in the same process. Heartbeat comments (`:heartbeat`) are sent every 30 seconds to keep connections alive through proxies.
+
+13. **The UI is a read-only observer.** The Next.js dashboard only makes GET requests to the bridge (plus the SSE stream). All writes go through MCP tools or direct REST calls from agents. The UI has no write path.
+
+14. **Zero telemetry.** No session tracking, no analytics logging, no external service calls. Skills do not phone home. All data stays local.

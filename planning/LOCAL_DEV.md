@@ -38,6 +38,9 @@ The setup script performs the following:
 3. **Installs MCP bridge dependencies**:
    - Runs `npm install` inside `mcp-bridge/`.
 
+4. **Installs UI dependencies**:
+   - Runs `npm install` inside `ui/`.
+
 ### 3. Build the MCP Bridge
 
 ```bash
@@ -91,6 +94,15 @@ npm start
 ```
 
 The REST API starts at `http://127.0.0.1:3100` by default. It exposes message and task routes for HTTP-based agent communication.
+
+### UI Dashboard (Next.js)
+
+```bash
+cd ~/repos/agentic-workflow/ui
+npm run dev    # http://localhost:3000
+```
+
+The UI reverse-proxies `/api/*` to `http://localhost:3100/*` (see `next.config.ts`). Start the bridge REST API first, then the UI.
 
 ### MCP Server (stdio)
 
@@ -162,19 +174,26 @@ agentic-workflow/
 │   └── mcp.json
 ├── mcp-bridge/                # MCP bridge application
 │   ├── src/
-│   │   ├── application/       # AppResult<T>, services (never throw)
+│   │   ├── application/       # AppResult<T>, EventBus, services (never throw)
 │   │   ├── db/                # SQLite schema, client interface, transactions
 │   │   ├── transport/         # Typed router, Zod schemas, controllers
-│   │   ├── routes/            # Route factories
+│   │   ├── routes/            # Route factories (messages, tasks, conversations, events/SSE)
 │   │   ├── server.ts          # Fastify server factory
 │   │   ├── mcp.ts             # MCP stdio server entry point
-│   │   └── index.ts           # REST API entry point
+│   │   └── index.ts           # REST API entry point (EventBus, CORS, SSE)
 │   ├── tests/                 # Vitest test files
 │   ├── dist/                  # Compiled output (gitignored)
 │   ├── .env.example           # Environment variable template
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── vitest.config.ts
+├── ui/                        # Next.js 15 conversation dashboard
+│   ├── next.config.ts         # Reverse proxy /api/* → :3100
+│   └── src/
+│       ├── app/               # App Router pages
+│       ├── components/        # Timeline, DiagramRenderer, CopyButton
+│       ├── hooks/             # use-sse hook
+│       └── lib/               # api.ts, diagrams.ts, types.ts
 ├── setup.sh                   # One-command setup script
 └── README.md
 ```
