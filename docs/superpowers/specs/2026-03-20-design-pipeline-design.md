@@ -46,7 +46,7 @@ Both `.impeccable.md` and `design-tokens.json` live at the project root and are 
 
 | Tool | Install | Purpose |
 |------|---------|---------|
-| Dembrandt | `npx dembrandt <url>` (no global install) | Analyze live websites; extract design tokens as W3C DTCG JSON |
+| Dembrandt | `npm install -g dembrandt` (installed by `setup.sh`) | Analyze live websites; extract design tokens as W3C DTCG JSON |
 
 ### New Skills
 
@@ -310,7 +310,7 @@ skills/
 
 ```
 skills/bootstrap/SKILL.md       (preamble table, DESIGN_SYSTEM template, CLAUDE.md template, Step 7, skill count)
-setup.sh                        (symlink 7 new skills, install Impeccable skills)
+setup.sh                        (symlink 7 new skills, install Impeccable skills, install Dembrandt dependency)
 CLAUDE.md                       (add design skills to tables and architecture)
 ```
 
