@@ -131,6 +131,7 @@ Individual skills with `design-` prefix, each visible via `/skills`:
 
 - **Argument:** `<screen-name>` (e.g., "dashboard", "login", "settings")
 - **Purpose:** Generate an HTML mockup using the visual companion, informed by the design language
+- **Allowed tools:** `Bash(*/start-server.sh *)`, `Write`, `Read`
 - **Process:**
   1. Load `.impeccable.md` and `design-tokens.json`
   2. Generate HTML mockup as a content fragment for the visual companion
@@ -145,12 +146,13 @@ Individual skills with `design-` prefix, each visible via `/skills`:
 - **Argument:** `<target>` — `web` or `swiftui`
 - **Purpose:** Generate production code from an approved mockup
 - **Process:**
-  1. Load `.impeccable.md`, `design-tokens.json`, and the approved mockup
-  2. Call Design Token Bridge MCP to generate platform-specific token files:
+  1. Load `.impeccable.md` and `design-tokens.json`
+  2. List approved mockups from `~/.agentic-workflow/<repo-slug>/design/`; if multiple exist, present the list and ask which one to implement
+  3. Call Design Token Bridge MCP to generate platform-specific token files:
      - `web` → `generate_css_variables` + `generate_tailwind_config`
      - `swiftui` → `generate_swiftui_theme`
-  3. Generate component/view code using the token files and Impeccable's frontend-design reference
-  4. Commit generated token files (`tokens.css`, `tailwind.preset.js`, or `Theme.swift`)
+  4. Generate component/view code using the token files and Impeccable's frontend-design reference
+  5. Commit generated token files (`tokens.css`, `tailwind.preset.js`, or `Theme.swift`)
 - **Output:** Production code + generated token files
 
 #### `/design-refine`
@@ -160,7 +162,7 @@ Individual skills with `design-` prefix, each visible via `/skills`:
 - **Process:**
   1. Load `.impeccable.md` and `design-tokens.json`
   2. If no command specified, analyze current implementation and suggest which refinements would help most
-  3. If command specified, dispatch that Impeccable skill with design context injected
+  3. If command specified, invoke via `Skill` tool (e.g., `Skill(colorize)`) with design context pre-loaded
   4. If token changes result from refinement, update `design-tokens.json`
 - **Output:** Refined code, potentially updated `design-tokens.json`
 
@@ -169,7 +171,7 @@ Individual skills with `design-` prefix, each visible via `/skills`:
 - **Argument:** none
 - **Purpose:** Screenshot the implementation, diff against the mockup baseline, report discrepancies
 - **Process:**
-  1. Detect target: web project, iOS project, or both
+  1. Detect target via heuristics: `Package.swift`/`.xcodeproj`/`*.xcworkspace` → iOS; `package.json` with Next.js/React/Vue → web; both present → both
   2. Capture implementation screenshots:
      - Web → Playwright MCP (`browser_navigate`, `browser_take_screenshot` at mobile/tablet/desktop viewports)
      - iOS → mobai MCP (`get_screenshot`)
@@ -334,13 +336,11 @@ CLAUDE.md                       (add design skills to tables and architecture)
 └── diff-<screen>-<viewport>.png (diff images from verification)
 ```
 
-## Open Questions for Planning
+## Resolved Design Decisions
 
-Advisory items from spec review — not blocking, but need resolution during implementation planning:
-
-1. **`/design-refine` dispatch mechanics** — how does it invoke Impeccable skills? Via `Skill` tool, `Agent` tool with SKILL.md content, or inlined instructions?
-2. **`/design-mockup` allowed-tools** — depends on Superpowers brainstorm visual companion; needs correct tool permissions in SKILL.md frontmatter
-3. **`/design-verify` target detection** — heuristic for web vs iOS (e.g., presence of `Package.swift`/`.xcodeproj` for iOS, `package.json` with Next.js/React for web)
-4. **`/design-implement` screen selection** — should take a `<screen-name>` argument when multiple mockups exist
-5. **Impeccable installation strategy** — vendor into this repo, add to `setup.sh`, or leave as manual prerequisite?
-6. **Generated token file placement** — root is fine for single-target projects; monorepos may need platform-specific subdirectories
+1. **`/design-refine` dispatch mechanics** — invokes Impeccable skills via the `Skill` tool. Impeccable skills are installed to `~/.claude/skills/`, so `/design-refine` loads design context then calls `Skill(colorize)`, `Skill(animate)`, etc.
+2. **`/design-mockup` allowed-tools** — scoped permissions: `Bash(*/start-server.sh *)`, `Write`, `Read`. Locked to the visual companion server script, no broad Bash access.
+3. **`/design-verify` target detection** — heuristic-based: check for `Package.swift`/`.xcodeproj`/`*.xcworkspace` → iOS; `package.json` with Next.js/React/Vue → web; both present → both. No argument override.
+4. **`/design-implement` screen selection** — interactive: if multiple approved mockups exist, list them and ask which one to implement. Takes `<target>` argument (`web` or `swiftui`) only.
+5. **Impeccable installation strategy** — `setup.sh` clones/downloads Impeccable and copies skills at install time, similar to other plugin installations. Always gets latest version, no vendored copy.
+6. **Generated token file placement** — always project root. Keep it simple; handle monorepos if/when needed.
