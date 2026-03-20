@@ -18,6 +18,7 @@
 
   --color-error: #EF4444;
   --color-error-dim: rgba(239, 68, 68, 0.12);
+  --color-error-glow: rgba(239, 68, 68, 0.25);
   --color-error-border: rgba(239, 68, 68, 0.30);
 
   --color-info: #3B82F6;

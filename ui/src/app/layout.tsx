@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="text-lg font-semibold tracking-tight">Bridge UI</span>
           </a>
           <div className="flex items-center gap-[var(--s2)]">
-            <div className="w-2 h-2 rounded-full bg-[#22C55E] shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+            <div className="w-2 h-2 rounded-full bg-[#22C55E] shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
             <span className="text-xs font-medium tracking-wide text-text-secondary">Connected to :3100</span>
           </div>
         </header>
