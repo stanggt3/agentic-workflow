@@ -128,6 +128,7 @@ agentic-workflow/
 │       ├── hooks/             # use-sse — EventSource hook for live updates
 │       └── lib/               # api.ts, diagrams.ts (Mermaid builders), types.ts
 ├── planning/                  # Generated project documentation
+├── start.sh                   # Start bridge + UI together
 └── setup.sh                   # One-command setup script
 ```
 
@@ -203,6 +204,7 @@ npm start              # Production server
 
 # Setup (from repo root)
 ./setup.sh             # Symlink skills, copy config, install deps (bridge + UI), create output dir
+./start.sh             # Start bridge (:3100) + UI (:3000) together
 ```
 
 ## Merge Gate

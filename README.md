@@ -96,18 +96,17 @@ The setup script:
 - Registers `agentic-bridge` MCP server with Claude Code and Codex
 - Adds plugin marketplaces and installs plugins (github, superpowers, compound-engineering, playwright)
 
-### Run the REST API (optional)
+### Start the bridge + UI
 
 ```bash
-cd mcp-bridge
-npm start          # Fastify on http://127.0.0.1:3100
+./start.sh         # Bridge on :3100, UI on :3000
 ```
 
-### Run the UI dashboard (optional)
+Or run them individually:
 
 ```bash
-cd ui
-npm run dev        # Next.js on http://localhost:3000
+cd mcp-bridge && npm start    # Fastify on http://127.0.0.1:3100
+cd ui && npm run dev          # Next.js on http://localhost:3000
 ```
 
 ### Environment Variables
@@ -145,5 +144,6 @@ agentic-workflow/
 │       ├── components/        # Timeline, DiagramRenderer, CopyButton
 │       ├── hooks/             # use-sse (EventSource hook)
 │       └── lib/               # API client, Mermaid builders, shared types
+├── start.sh                   # Start bridge + UI together
 └── setup.sh                   # One-command setup script
 ```

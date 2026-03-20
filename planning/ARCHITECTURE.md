@@ -177,6 +177,7 @@ agentic-workflow/
 │           ├── api.ts                 #   Fetch wrappers: fetchConversations, fetchMessages, fetchTasks
 │           ├── diagrams.ts            #   Mermaid builders: buildDirectedGraph, buildSequenceDiagram
 │           └── types.ts               #   TypeScript types mirroring bridge schemas
+├── start.sh                            # Start bridge (:3100) + UI (:3000) together
 ├── setup.sh                            # One-command installer: symlinks 14 skills, copies config, creates output dir
 ├── .gitignore                          # Ignores node_modules, dist, *.db, .env, .review-cache
 └── README.md                           # Project overview, setup instructions, env vars
