@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { fetchConversations } from "@/lib/api";
 import { useSse } from "@/hooks/use-sse";
+import { ConversationCard } from "@/components/conversation-card";
 import type { ConversationSummary } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -27,87 +27,69 @@ export default function ConversationListPage() {
     }
   }, []);
 
-  // Initial load
-  useEffect(() => {
-    load(0);
-  }, [load]);
-
-  // Real-time updates: re-fetch on any event
-  useSse({
-    onEvent: () => {
-      load(0);
-    },
-  });
+  useEffect(() => { load(0); }, [load]);
+  useSse({ onEvent: () => { load(0); } });
 
   const filtered = filter
     ? conversations.filter((c) => c.conversation.toLowerCase().includes(filter.toLowerCase()))
     : conversations;
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold">Conversations</h1>
-        <span className="text-zinc-500 text-sm">{total} total</span>
+    <div className="max-w-[960px] mx-auto px-[var(--s3)] py-[var(--s8)]">
+      {/* Page header */}
+      <div className="flex items-center gap-[var(--s3)] mb-[var(--s6)]">
+        <h1 className="text-xl font-bold">Conversations</h1>
+        <span className="text-xs font-semibold text-accent bg-accent-dim border border-accent-border px-[var(--s2)] py-0.5 rounded-full">
+          {total}
+        </span>
       </div>
 
-      <input
-        type="text"
-        placeholder="Filter by conversation ID..."
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        className="w-full mb-4 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-      />
-
-      <div className="border border-zinc-800 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-zinc-900 text-zinc-400 text-left">
-              <th className="px-4 py-2">Conversation</th>
-              <th className="px-4 py-2 text-center">Messages</th>
-              <th className="px-4 py-2 text-center">Tasks</th>
-              <th className="px-4 py-2 text-right">Last Activity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((conv) => (
-              <tr
-                key={conv.conversation}
-                className="border-t border-zinc-800 hover:bg-zinc-900/50 transition-colors"
-              >
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/conversation/${conv.conversation}`}
-                    className="text-blue-400 hover:underline font-mono text-xs"
-                  >
-                    {conv.conversation.slice(0, 8)}...
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-center text-zinc-300">{conv.message_count}</td>
-                <td className="px-4 py-3 text-center text-zinc-300">{conv.task_count}</td>
-                <td className="px-4 py-3 text-right text-zinc-500 text-xs">
-                  {new Date(conv.last_activity).toLocaleString()}
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && !loading && (
-              <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-zinc-500">
-                  {filter ? "No matching conversations" : "No conversations yet"}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      {/* Search */}
+      <div className="relative mb-[var(--s5)]">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-[var(--s3)] top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search conversations..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="w-full pl-10 pr-[var(--s4)] py-[var(--s3)] bg-surface border border-border rounded-sm text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent-border focus:shadow-[0_0_0_2px_var(--color-accent-dim)]"
+        />
       </div>
 
+      {/* Card list */}
+      <div className="flex flex-col gap-[var(--s3)]">
+        {filtered.map((conv) => (
+          <ConversationCard key={conv.conversation} conversation={conv} />
+        ))}
+        {filtered.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center py-[var(--s12)] text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-12 h-12 text-text-tertiary mb-[var(--s4)]">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <div className="text-sm font-medium text-text-secondary">
+              {filter ? "No matching conversations" : "No conversations yet"}
+            </div>
+            <div className="text-xs text-text-tertiary mt-[var(--s1)]">
+              {filter ? "Try a different search term" : "Conversations will appear here as agents communicate"}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Load more */}
       {conversations.length < total && (
-        <button
-          onClick={() => load(offset + PAGE_SIZE)}
-          disabled={loading}
-          className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-sm text-zinc-300 disabled:opacity-50"
-        >
-          {loading ? "Loading..." : "Load more"}
-        </button>
+        <div className="flex justify-center mt-[var(--s6)]">
+          <button
+            onClick={() => load(offset + PAGE_SIZE)}
+            disabled={loading}
+            className="px-[var(--s6)] py-[var(--s3)] bg-surface border border-border rounded-sm text-sm font-medium text-text-secondary hover:text-text-primary hover:border-[rgba(255,255,255,0.12)] transition-all disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Load more"}
+          </button>
+        </div>
       )}
     </div>
   );
