@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { fetchMessages, fetchTasks } from "@/lib/api";
 import { useSse } from "@/hooks/use-sse";
 import { buildDirectedGraph, buildSequenceDiagram } from "@/lib/diagrams";
@@ -39,26 +40,26 @@ export default function ConversationDetailPage() {
     },
   });
 
-  const graphDef = buildDirectedGraph(messages);
-  const seqDef = buildSequenceDiagram(messages);
+  const graphDef = useMemo(() => buildDirectedGraph(messages), [messages]);
+  const seqDef = useMemo(() => buildSequenceDiagram(messages), [messages]);
 
   // Count unique agents
-  const agents = new Set(messages.flatMap((m) => [m.sender, m.recipient]));
+  const agents = useMemo(() => new Set(messages.flatMap((m) => [m.sender, m.recipient])), [messages]);
 
   return (
     <div className="max-w-[1440px] mx-auto px-[var(--s3)] py-[var(--s8)]">
       {/* Back link */}
-      <a href="/" className="inline-flex items-center gap-[var(--s2)] text-sm text-text-secondary no-underline mb-[var(--s6)] hover:text-text-primary transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <Link href="/" className="inline-flex items-center gap-[var(--s2)] text-sm text-text-secondary no-underline mb-[var(--s6)] hover:text-text-primary transition-colors">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
           <polyline points="15 18 9 12 15 6"/>
         </svg>
         All conversations
-      </a>
+      </Link>
 
       {/* Conversation header */}
       <div className="flex items-center gap-[var(--s4)] pb-[var(--s6)] mb-[var(--s6)] border-b border-border">
         <div className="w-12 h-12 bg-accent-dim border border-accent-border rounded-md flex items-center justify-center shrink-0 shadow-[0_0_24px_var(--color-accent-glow)]">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-accent">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-accent">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
         </div>
