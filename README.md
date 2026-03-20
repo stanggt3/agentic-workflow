@@ -44,12 +44,41 @@ A TypeScript MCP server for bidirectional multi-agent communication.
 - `assign_task` — Assign tasks with domain and implementation details
 - `report_status` — Report back with feedback or completion
 
+**API Endpoints:**
+- `POST /messages/send` — Send context between agents
+- `GET /messages/conversation/:id` — Retrieve conversation history
+- `GET /messages/unread?recipient=` — Fetch and mark-read unread messages
+- `POST /tasks/assign` — Assign a task with domain classification
+- `GET /tasks/:id` — Get a task by ID
+- `GET /tasks/conversation/:id` — Get all tasks for a conversation
+- `POST /tasks/report` — Report task status
+- `GET /conversations` — Paginated conversation summaries
+- `GET /events` — SSE stream (`message:created`, `task:created`, `task:updated`, heartbeat every 30s)
+
 **Features:**
 - SQLite store-and-forward (messages queue when recipient is offline)
 - Conversation continuity via UUID
 - Fastify REST API (port 3100) + MCP stdio server
 - Full end-to-end type safety with `AppResult<T>` pattern
 - Atomic transactions for multi-step operations
+- EventBus for real-time SSE push to connected clients
+- CORS enabled for local UI integration
+
+### 4. Conversation Dashboard (UI)
+
+A Next.js 15 App Router web UI for visualising bridge activity in real time.
+
+**Features:**
+- Paginated conversation list with UUID filter and SSE live updates
+- Per-conversation detail view: chronological timeline, directed graph, sequence diagram
+- Mermaid-powered diagrams built from live message + task data
+- Reverse-proxies `/api/*` to the bridge REST API (`:3100`)
+
+**Run the dashboard:**
+```bash
+cd ui
+npm run dev    # http://localhost:3000
+```
 
 ## Setup
 
@@ -63,6 +92,7 @@ The setup script:
 - Symlinks skills into `~/.claude/skills/`
 - Copies config files (settings, MCP)
 - Installs and builds the MCP bridge
+- Installs UI dependencies
 - Registers `agentic-bridge` MCP server with Claude Code and Codex
 - Adds plugin marketplaces and installs plugins (github, superpowers, compound-engineering, playwright)
 
@@ -71,6 +101,13 @@ The setup script:
 ```bash
 cd mcp-bridge
 npm start          # Fastify on http://127.0.0.1:3100
+```
+
+### Run the UI dashboard (optional)
+
+```bash
+cd ui
+npm run dev        # Next.js on http://localhost:3000
 ```
 
 ### Environment Variables
@@ -95,12 +132,18 @@ agentic-workflow/
 ├── config/                    # Settings & MCP config archive
 ├── mcp-bridge/                # MCP bridge application
 │   └── src/
-│       ├── application/       # AppResult<T>, services (never throw)
+│       ├── application/       # AppResult<T>, EventBus, services (never throw)
 │       ├── db/                # SQLite schema, client interface, transactions
 │       ├── transport/         # Typed router, Zod schemas, controllers
-│       ├── routes/            # Route factories (wire schemas to handlers)
+│       ├── routes/            # Route factories (messages, tasks, conversations, events)
 │       ├── server.ts          # Fastify server factory
 │       ├── mcp.ts             # MCP stdio server (5 tools)
 │       └── index.ts           # REST API entry point
+├── ui/                        # Next.js 15 conversation dashboard
+│   └── src/
+│       ├── app/               # App Router pages (conversation list + detail)
+│       ├── components/        # Timeline, DiagramRenderer, CopyButton
+│       ├── hooks/             # use-sse (EventSource hook)
+│       └── lib/               # API client, Mermaid builders, shared types
 └── setup.sh                   # One-command setup script
 ```

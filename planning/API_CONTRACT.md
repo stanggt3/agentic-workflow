@@ -392,6 +392,99 @@ Report status back with feedback, suggestions, or completion. Optionally updates
 
 ---
 
+## GET /conversations
+
+Get a paginated list of conversation summaries, aggregated from messages and tasks.
+
+### Request
+
+**Query Parameters:**
+
+| Param | Type | Required | Validation | Description |
+|---|---|---|---|---|
+| `limit` | number | No | Integer, min 1, max 100, default 20 | Number of conversations to return |
+| `offset` | number | No | Integer, min 0, default 0 | Number of conversations to skip |
+
+### Response (200)
+
+```jsonc
+{
+  "ok": true,
+  "data": [
+    {
+      "conversation": "uuid",         // Conversation UUID
+      "participants": ["agent-a", "agent-b"],  // Unique senders/recipients
+      "message_count": 4,
+      "task_count": 1,
+      "last_activity": "ISO-8601"     // Most recent created_at across messages + tasks
+    }
+    // ... ordered by last_activity DESC
+  ]
+}
+```
+
+Returns an empty array if no conversations exist.
+
+### Error Cases
+
+| HTTP Status | Code | Meaning |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Invalid query parameters |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |
+
+### Side Effects
+
+None. Read-only.
+
+---
+
+## GET /events
+
+Server-Sent Events stream. Clients receive real-time notifications when messages or tasks are created or updated.
+
+### Request
+
+No parameters. The client should use `EventSource` or equivalent.
+
+### Response (200, `text/event-stream`)
+
+The connection stays open indefinitely. Events are sent as SSE `data:` lines:
+
+**Initial connection event:**
+```
+data: {"type":"connected","data":{"timestamp":"ISO-8601"}}
+```
+
+**Message created:**
+```
+data: {"type":"message:created","data":{...MessageRow}}
+```
+
+**Task created:**
+```
+data: {"type":"task:created","data":{...TaskRow}}
+```
+
+**Task updated:**
+```
+data: {"type":"task:updated","data":{...TaskRow}}
+```
+
+**Heartbeat (every 30 seconds):**
+```
+:heartbeat
+```
+
+### Error Cases
+
+No standard error response — connection failures result in the EventSource client reconnecting automatically.
+
+### Side Effects
+
+None. Read-only stream.
+
+---
+
 ## MCP Tool: send_context
 
 Identical logic to `POST /messages/send`, exposed over MCP stdio transport.

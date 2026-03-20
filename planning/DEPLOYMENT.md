@@ -19,6 +19,17 @@ This compiles TypeScript from `src/` to `dist/` using `tsc`. The production entr
 | REST API | `dist/index.js` | Fastify server on port 3100 |
 | MCP Server | `dist/mcp.js` | Stdio-based MCP server for Claude Code / Codex |
 
+### UI Dashboard
+
+```bash
+cd ~/repos/agentic-workflow/ui
+npm install
+npm run build
+npm start       # Next.js on http://localhost:3000
+```
+
+The UI reverse-proxies `/api/*` to `http://localhost:3100/*` (configured in `next.config.ts`). The bridge REST API must be running before starting the UI in production.
+
 ## Registering the MCP Server
 
 ### Claude Code
@@ -149,7 +160,7 @@ Full setup from scratch:
 git clone https://github.com/joi-fairshare/agentic-workflow.git ~/repos/agentic-workflow
 cd ~/repos/agentic-workflow
 
-# 2. Run the setup script (installs skills, config, and npm dependencies)
+# 2. Run the setup script (installs skills, config, npm dependencies for bridge + UI)
 ./setup.sh
 
 # 3. Build the MCP bridge
@@ -164,12 +175,17 @@ codex mcp add agentic-bridge -- node ~/repos/agentic-workflow/mcp-bridge/dist/mc
 
 # 6. (Optional) Start the REST API server
 npm start
+
+# 7. (Optional) Start the UI dashboard
+cd ~/repos/agentic-workflow/ui
+npm run dev    # http://localhost:3000
 ```
 
 The setup script handles:
 - Symlinking all skills to `~/.claude/skills/`
 - Copying `settings.json` and `mcp.json` to `~/.claude/` (non-destructive -- skips if files exist)
 - Running `npm install` in `mcp-bridge/`
+- Running `npm install` in `ui/`
 
 After setup, it prints a reminder for manual plugin installations:
 - claude-plugins-official (Anthropic official)

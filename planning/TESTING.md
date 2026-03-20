@@ -11,8 +11,10 @@ The test suite uses **Vitest** with explicit imports (globals are disabled in th
 ```
 mcp-bridge/
   tests/
-    services.test.ts    # Service-layer unit tests
-  vitest.config.ts      # Vitest configuration
+    services.test.ts       # Service-layer unit tests (sendContext, getMessages, getUnread, assignTask, reportStatus)
+    conversations.test.ts  # Conversation summary service tests (4 tests)
+    events.test.ts         # EventBus unit tests (4 tests: emit, on, off, multiple subscribers)
+  vitest.config.ts         # Vitest configuration
 ```
 
 Tests live in `mcp-bridge/tests/`. The `tsconfig.json` excludes `tests/` from compilation output, but Vitest picks them up at runtime via `tsx`.
@@ -182,20 +184,24 @@ expect(msgs.data).toHaveLength(0);
 
 ## Coverage Targets
 
-The current test suite covers the service layer (`src/application/services/`):
+The current test suite covers the service layer (`src/application/services/`) and the EventBus:
 
-| Service | Tested |
-|---------|--------|
-| `sendContext` | Insert + return shape |
-| `getMessagesByConversation` | Chronological order, empty conversation |
-| `getUnreadMessages` | Returns unread, marks as read, subsequent call returns empty |
-| `assignTask` | Task creation + message side effect |
-| `reportStatus` | Status update + task mutation, error on missing task |
+| Module | Tests | Coverage |
+|--------|-------|---------|
+| `sendContext` | Insert + return shape | Happy path |
+| `getMessagesByConversation` | Chronological order, empty conversation | Happy path |
+| `getUnreadMessages` | Returns unread, marks as read, subsequent call returns empty | Happy + edge |
+| `assignTask` | Task creation + message side effect | Happy path + atomicity |
+| `reportStatus` | Status update + task mutation, error on missing task | Happy + error path |
+| `getConversations` | Pagination, participant aggregation, empty result | Happy + edge |
+| `EventBus` | emit, on, off, multiple subscribers | All branches |
 
 Coverage targets to aim for:
 - **Service layer**: 100% of exported functions should have happy-path and error-path tests.
+- **EventBus**: All emit/subscribe/unsubscribe paths covered.
 - **Transport/route layer**: Integration tests against Fastify's `inject()` method (not yet implemented).
 - **MCP tool layer**: Validate Zod schemas reject malformed input (not yet implemented).
+- **UI**: No automated tests at this time; manual verification via `npm run dev`.
 
 ## Writing New Tests
 

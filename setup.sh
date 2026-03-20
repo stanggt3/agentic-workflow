@@ -97,7 +97,7 @@ if command -v claude &>/dev/null; then
   if claude mcp list 2>&1 | grep -q "agentic-bridge"; then
     echo "  agentic-bridge: already registered in Claude Code"
   else
-    claude mcp add agentic-bridge -- node "$BRIDGE_DIR/dist/mcp.js"
+    claude mcp add --scope user agentic-bridge -- node "$BRIDGE_DIR/dist/mcp.js"
     echo "  agentic-bridge: registered in Claude Code"
   fi
 else
@@ -116,6 +116,19 @@ if command -v codex &>/dev/null; then
   fi
 else
   echo "  codex CLI not found, skipping Codex registration"
+fi
+
+# --- UI ---
+echo ""
+echo "Installing UI dependencies..."
+
+UI_DIR="$SCRIPT_DIR/ui"
+
+if [ -f "$UI_DIR/package.json" ]; then
+  (cd "$UI_DIR" && npm install)
+  echo "  UI: dependencies installed"
+else
+  echo "  UI: package.json not found, skipping"
 fi
 
 # --- Claude Code Plugins ---
@@ -170,3 +183,4 @@ echo "Config location:    $CLAUDE_DIR/"
 echo "MCP bridge:         $BRIDGE_DIR/"
 echo "MCP registered:     Claude Code + Codex (agentic-bridge)"
 echo "Plugins:            github, superpowers, compound-engineering, playwright"
+echo "UI dashboard:       $UI_DIR/ (npm run dev → :3000)"
