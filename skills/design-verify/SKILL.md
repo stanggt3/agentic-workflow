@@ -97,20 +97,24 @@ Check project files to determine the target:
 - **Web indicators:** `package.json` with Next.js/React/Vue dependencies → use Playwright MCP
 - **Both present:** run verification for both platforms
 
-```bash
+Use `Glob` and `Read` tools to detect the platform:
+
+```
 # Check for iOS
-ls Package.swift *.xcodeproj *.xcworkspace 2>/dev/null
+Glob("Package.swift")
+Glob("*.xcodeproj")
+Glob("*.xcworkspace")
 
 # Check for web (read package.json dependencies)
-cat package.json 2>/dev/null
+Read("package.json")
 ```
 
 ## Step 2: Load Baselines
 
 Find mockup baselines in the design output directory:
 
-```bash
-ls ~/.agentic-workflow/$REPO_SLUG/design/mockup-*.png 2>/dev/null
+```
+Glob("~/.agentic-workflow/<repo-slug>/design/mockup-*.png")
 ```
 
 If no baselines found:
@@ -199,6 +203,8 @@ Suggested fixes:
   • Update header height to match spacing.header token
   • Replace hardcoded border-radius with var(--radius-md)
   • Use var(--color-text) instead of hardcoded #333
+
+Suggested fix path: Run `/design-refine` to address discrepancies, then `/design-verify` again.
 
 Diff images saved to ~/.agentic-workflow/<repo-slug>/design/
 ```

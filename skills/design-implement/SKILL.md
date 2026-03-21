@@ -3,7 +3,7 @@ name: design-implement
 description: Generate production code from an approved mockup using Design Token Bridge MCP for platform-specific token files. Supports web (CSS/Tailwind/Next.js) and SwiftUI targets. Interactive mockup selection when multiple exist.
 argument-hint: <target> (web | swiftui)
 disable-model-invocation: true
-allowed-tools: Read, Write, Edit, Glob, Bash(git *), Bash(npx *), AskUserQuestion
+allowed-tools: Read, Write, Edit, Glob, Bash(git *), Bash(npx design-token-bridge-mcp *), AskUserQuestion
 ---
 
 > **Agentic Workflow** — 21 skills available. Run any as `/<name>`.

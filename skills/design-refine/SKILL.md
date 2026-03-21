@@ -167,6 +167,7 @@ Next steps:
   • Run /design-verify to check implementation against mockup
   • Run /design-refine [another-command] for additional refinements
   • Run /design-refine (no args) for a new analysis
+  • If `design-tokens.json` was updated, run `/design-implement` to regenerate platform token files
 ```
 
 ## Rules
