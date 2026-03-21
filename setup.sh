@@ -270,7 +270,7 @@ fi
 echo ""
 echo "Installing Dembrandt CLI..."
 
-DEMBRANDT_VERSION="latest"  # TODO: Pin to specific version for reproducible builds (e.g., "1.0.0")
+DEMBRANDT_VERSION="0.7.0"
 
 if command -v dembrandt &>/dev/null; then
   echo "  dembrandt: already installed ($(dembrandt --version 2>/dev/null || echo 'unknown version'))"
@@ -284,14 +284,13 @@ fi
 echo ""
 echo "Installing Impeccable skills..."
 
-# TODO: Pin to a specific commit hash for reproducible builds (e.g., "abc1234def5678...")
-IMPECCABLE_VERSION="main"
+IMPECCABLE_VERSION="d6b1a56bc5b79e9375be0f8508b4daa1678fb058"
 IMPECCABLE_DIR="$HOME/.claude/impeccable-cache"
 IMPECCABLE_SKILLS_SRC="$IMPECCABLE_DIR/dist/claude-code"
 
 if [ -d "$IMPECCABLE_SKILLS_SRC" ]; then
   echo "  impeccable: cache exists, checking for updates..."
-  (cd "$IMPECCABLE_DIR" && git fetch origin && git checkout "$IMPECCABLE_VERSION" && git pull --ff-only) || \
+  (cd "$IMPECCABLE_DIR" && git fetch origin && git checkout "$IMPECCABLE_VERSION") || \
     echo "  Warning: Could not update Impeccable cache. Using existing version."
 else
   echo "  impeccable: cloning pbakaus/impeccable..."
