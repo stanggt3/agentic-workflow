@@ -90,6 +90,11 @@ export interface MemoryDbClient {
 }
 
 // ── Factory ────────────────────────────────────────────────
+//
+// Note on `as` casts: better-sqlite3 returns `unknown` from .get()/.all() by design —
+// the library has no generic overloads. Casting to the expected row type at the call
+// site is the idiomatic pattern for this library (a typed queryRow<T> wrapper would
+// just move the cast, not eliminate it).
 
 export function createMemoryDbClient(db: Database.Database): MemoryDbClient {
   const stmts = {
@@ -158,13 +163,20 @@ export function createMemoryDbClient(db: Database.Database): MemoryDbClient {
     `),
   };
 
+  // Hoist encoder/decoder to closure scope so they're created once, not per call.
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
   /** Truncate body to MAX_BODY_BYTES (P1 fix). */
   function truncateBody(body: string): string {
-    const encoder = new TextEncoder();
     const bytes = encoder.encode(body);
     if (bytes.length <= MAX_BODY_BYTES) return body;
-    const decoder = new TextDecoder();
-    return decoder.decode(bytes.slice(0, MAX_BODY_BYTES));
+    let decoded = decoder.decode(bytes.slice(0, MAX_BODY_BYTES));
+    // Strip trailing UTF-8 replacement character that can appear at a multi-byte boundary.
+    if (decoded.endsWith("\uFFFD")) {
+      decoded = decoded.slice(0, -1);
+    }
+    return decoded;
   }
 
   return {
@@ -253,7 +265,8 @@ export function createMemoryDbClient(db: Database.Database): MemoryDbClient {
     },
 
     insertEmbedding(nodeId, embedding) {
-      stmts.insertEmbedding.run(nodeId, Buffer.from(embedding.buffer));
+      // Use byteOffset + byteLength to handle Float32Array views into a larger SharedArrayBuffer.
+      stmts.insertEmbedding.run(nodeId, Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength));
     },
 
     getEmbedding(nodeId) {
@@ -263,13 +276,15 @@ export function createMemoryDbClient(db: Database.Database): MemoryDbClient {
     },
 
     searchKNN(query, limit, repo?) {
+      // Use byteOffset + byteLength to handle Float32Array views into a larger SharedArrayBuffer.
+      const queryBuf = Buffer.from(query.buffer, query.byteOffset, query.byteLength);
       if (!repo) {
-        return stmts.searchKNN.all(Buffer.from(query.buffer), limit) as Array<{ node_id: string; distance: number }>;
+        return stmts.searchKNN.all(queryBuf, limit) as Array<{ node_id: string; distance: number }>;
       }
       // Fetch extra candidates (limit * 3) then post-filter by repo via nodes table join.
       // sqlite-vec KNN queries don't support JOIN, so we over-fetch and filter in JS.
       const overFetchLimit = limit * 3;
-      const candidates = stmts.searchKNN.all(Buffer.from(query.buffer), overFetchLimit) as Array<{ node_id: string; distance: number }>;
+      const candidates = stmts.searchKNN.all(queryBuf, overFetchLimit) as Array<{ node_id: string; distance: number }>;
       const filtered: Array<{ node_id: string; distance: number }> = [];
       for (const candidate of candidates) {
         if (filtered.length >= limit) break;

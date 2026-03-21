@@ -18,6 +18,9 @@ export const MAX_BODY_BYTES = 50 * 1024; // 50 KB
 
 // ── DDL ──────────────────────────────────────────────────────────────
 
+// MEMORY_MIGRATIONS is a single-version schema (v1) applied atomically via db.exec().
+// Future schema changes should introduce a `schema_version` table and numbered migration
+// statements so versions can be applied incrementally without re-running prior DDL.
 export const MEMORY_MIGRATIONS = `
 CREATE TABLE IF NOT EXISTS nodes (
   id           TEXT PRIMARY KEY,
@@ -54,7 +57,11 @@ CREATE INDEX IF NOT EXISTS idx_edges_to        ON edges(to_node);
 CREATE INDEX IF NOT EXISTS idx_edges_repo_kind ON edges(repo, kind);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_unique ON edges(from_node, to_node, kind);
 
--- FTS5 virtual table for full-text search on node title + body
+-- FTS5 external-content table for full-text search on node title + body.
+-- The content='nodes' + content_rowid='rowid' pattern means FTS5 stores only the index,
+-- not the raw text -- the rowid-based join back to the nodes table is the standard SQLite
+-- FTS5 external content pattern. Correctness depends on the INSERT/DELETE/UPDATE triggers
+-- below keeping the index in sync; without them queries would return stale data.
 CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
   title,
   body,

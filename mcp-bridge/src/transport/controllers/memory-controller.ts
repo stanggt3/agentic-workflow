@@ -162,7 +162,7 @@ export function createMemoryController(
     ): Promise<ApiResponse<EdgeResponse>> {
       const { from_node, to_node, kind, note } = req.body;
 
-      // Validate both nodes exist before creating the edge
+      // Validate both nodes exist before entering the transaction.
       const fromNodeRow = mdb.getNode(from_node);
       if (!fromNodeRow) {
         return appErr({ code: "NOT_FOUND", message: `Node ${from_node} not found`, statusHint: 404 });
@@ -175,15 +175,18 @@ export function createMemoryController(
       // Filter secrets from the note field
       const filteredNote = note ? filter.redact(note) : "";
 
-      const edge = mdb.insertEdge({
-        repo: fromNodeRow.repo,
-        from_node,
-        to_node,
-        kind,
-        weight: 1.0,
-        meta: filteredNote ? JSON.stringify({ note: filteredNote }) : "{}",
-        auto: false,
-      });
+      // Wrap edge creation in a transaction so the insert is atomic.
+      const edge = mdb.transaction(() =>
+        mdb.insertEdge({
+          repo: fromNodeRow.repo,
+          from_node,
+          to_node,
+          kind,
+          weight: 1.0,
+          meta: filteredNote ? JSON.stringify({ note: filteredNote }) : "{}",
+          auto: false,
+        })
+      );
       return { ok: true, data: edge };
     },
 
@@ -196,31 +199,36 @@ export function createMemoryController(
       const filteredTitle = filter.redact(title);
       const filteredBody = body ? filter.redact(body) : "";
 
-      const node = mdb.insertNode({
-        repo,
-        kind,
-        title: filteredTitle,
-        body: filteredBody,
-        meta: "{}",
-        source_id: "",
-        source_type: "manual",
-      });
+      // Wrap node + optional edge creation in a transaction so they succeed or fail together.
+      const node = mdb.transaction(() => {
+        const inserted = mdb.insertNode({
+          repo,
+          kind,
+          title: filteredTitle,
+          body: filteredBody,
+          meta: "{}",
+          source_id: "",
+          source_type: "manual",
+        });
 
-      // If related_to is provided, create a related_to edge
-      if (related_to) {
-        const relatedNode = mdb.getNode(related_to);
-        if (relatedNode) {
-          mdb.insertEdge({
-            repo,
-            from_node: node.id,
-            to_node: related_to,
-            kind: "related_to",
-            weight: 1.0,
-            meta: "{}",
-            auto: false,
-          });
+        // If related_to is provided, create a related_to edge
+        if (related_to) {
+          const relatedNode = mdb.getNode(related_to);
+          if (relatedNode) {
+            mdb.insertEdge({
+              repo,
+              from_node: inserted.id,
+              to_node: related_to,
+              kind: "related_to",
+              weight: 1.0,
+              meta: "{}",
+              auto: false,
+            });
+          }
         }
-      }
+
+        return inserted;
+      });
 
       return { ok: true, data: node };
     },
