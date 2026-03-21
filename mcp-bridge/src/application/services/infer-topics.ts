@@ -12,6 +12,8 @@ export interface InferTopicsInput {
   k?: number;
   /** Minimum cosine similarity to assign a node to a cluster. Default: 0.7. */
   threshold?: number;
+  /** Maximum number of conversations to load into memory. Default: 1000. */
+  maxConversations?: number;
 }
 
 export interface InferTopicsResult {
@@ -76,15 +78,20 @@ function runKMeans(
   usedIndices.add(firstIdx);
   const centroids: Float32Array[] = [entries[firstIdx].embedding];
 
+  // Running minimum-distance array: minDist[i] = (1 - maxSim)^2 to nearest centroid so far.
+  // After adding each new centroid we only update against that one centroid — O(n·d) per step
+  // instead of O(i·n·d), reducing total initialization from O(k²·n·d) to O(k·n·d).
+  const minDist = new Float64Array(n).fill(Infinity);
+  // Seed with distances to the first centroid
+  for (let i = 0; i < n; i++) {
+    if (usedIndices.has(i)) { minDist[i] = 0; continue; }
+    const d = 1 - cosineSimilarity(entries[i].embedding, centroids[0]);
+    minDist[i] = d * d;
+  }
+
   while (centroids.length < actualK) {
-    // For each entry compute (1 - max_cosine_sim_to_existing_centroids)^2 as weight
-    const weights = entries.map((entry, i) => {
-      if (usedIndices.has(i)) return 0;
-      const maxSim = Math.max(...centroids.map((c) => cosineSimilarity(entry.embedding, c)));
-      const dist = 1 - maxSim;
-      return dist * dist;
-    });
-    const totalWeight = weights.reduce((s, w) => s + w, 0);
+    // weights are already maintained as minDist
+    const totalWeight = minDist.reduce((s, w) => s + w, 0);
     if (totalWeight === 0) {
       // All remaining entries are identical to existing centroids — stop early
       break;
@@ -92,12 +99,27 @@ function runKMeans(
     let r = Math.random() * totalWeight;
     let chosen = -1;
     for (let i = 0; i < n; i++) {
-      r -= weights[i];
+      r -= minDist[i];
       if (r <= 0) { chosen = i; break; }
     }
-    if (chosen === -1) chosen = weights.findIndex((w) => w > 0);
+    if (chosen === -1) {
+      // Fallback: pick the entry with the largest minDist
+      chosen = 0;
+      for (let i = 1; i < n; i++) {
+        if (minDist[i] > minDist[chosen]) chosen = i;
+      }
+    }
     usedIndices.add(chosen);
-    centroids.push(entries[chosen].embedding);
+    const newCentroid = entries[chosen].embedding;
+    centroids.push(newCentroid);
+
+    // Update minDist against the newly added centroid only
+    for (let i = 0; i < n; i++) {
+      if (usedIndices.has(i)) { minDist[i] = 0; continue; }
+      const d = 1 - cosineSimilarity(entries[i].embedding, newCentroid);
+      const dSq = d * d;
+      if (dSq < minDist[i]) minDist[i] = dSq;
+    }
   }
 
   let assignments = new Array<number>(n).fill(-1);
@@ -173,10 +195,11 @@ export async function inferTopics(
   _embedService: EmbeddingService,
   input: InferTopicsInput,
 ): Promise<AppResult<InferTopicsResult>> {
-  const { repo, k = 10, threshold = 0.7 } = input;
+  const { repo, k = 10, threshold = 0.7, maxConversations = 1000 } = input;
 
-  // 1. Fetch all conversation-kind nodes for the repo
-  const conversations = mdb.getNodesByRepoAndKind(repo, "conversation");
+  // 1. Fetch conversation-kind nodes for the repo, bounded to avoid unbounded memory growth
+  const allConversations = mdb.getNodesByRepoAndKind(repo, "conversation");
+  const conversations = allConversations.slice(0, maxConversations);
 
   // 2. Collect entries that have embeddings
   const entries: ClusterEntry[] = [];
