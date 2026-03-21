@@ -270,11 +270,13 @@ fi
 echo ""
 echo "Installing Dembrandt CLI..."
 
+DEMBRANDT_VERSION="latest"  # TODO: Pin to specific version for reproducible builds (e.g., "1.0.0")
+
 if command -v dembrandt &>/dev/null; then
   echo "  dembrandt: already installed ($(dembrandt --version 2>/dev/null || echo 'unknown version'))"
 else
-  npm install -g dembrandt 2>&1 && \
-    echo "  dembrandt: installed globally" || \
+  npm install -g "dembrandt@$DEMBRANDT_VERSION" 2>&1 && \
+    echo "  dembrandt: installed globally ($DEMBRANDT_VERSION)" || \
     echo "  dembrandt: failed to install (non-fatal, install manually: npm install -g dembrandt)"
 fi
 
@@ -282,15 +284,19 @@ fi
 echo ""
 echo "Installing Impeccable skills..."
 
+# TODO: Pin to a specific commit hash for reproducible builds (e.g., "abc1234def5678...")
+IMPECCABLE_VERSION="main"
 IMPECCABLE_DIR="$HOME/.claude/impeccable-cache"
 IMPECCABLE_SKILLS_SRC="$IMPECCABLE_DIR/dist/claude-code"
 
 if [ -d "$IMPECCABLE_SKILLS_SRC" ]; then
   echo "  impeccable: cache exists, checking for updates..."
-  (cd "$IMPECCABLE_DIR" && git pull --ff-only 2>/dev/null) || true
+  (cd "$IMPECCABLE_DIR" && git fetch origin && git checkout "$IMPECCABLE_VERSION" && git pull --ff-only) || \
+    echo "  Warning: Could not update Impeccable cache. Using existing version."
 else
   echo "  impeccable: cloning pbakaus/impeccable..."
-  git clone https://github.com/pbakaus/impeccable.git "$IMPECCABLE_DIR" 2>&1 || {
+  git clone https://github.com/pbakaus/impeccable.git "$IMPECCABLE_DIR" 2>&1 && \
+    (cd "$IMPECCABLE_DIR" && git checkout "$IMPECCABLE_VERSION") || {
     echo "  impeccable: failed to clone (non-fatal)"
     IMPECCABLE_SKILLS_SRC=""
   }
