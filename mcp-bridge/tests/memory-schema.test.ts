@@ -111,7 +111,7 @@ describe("MEMORY_MIGRATIONS", () => {
     ).run();
     db.prepare(
       `INSERT INTO nodes (id, repo, kind, title, body, meta, source_id, source_type, created_at, updated_at)
-       VALUES ('n2', 'r', 'message', 't', 'b', '{}', 's', 'bridge', datetime('now'), datetime('now'))`
+       VALUES ('n2', 'r', 'message', 't', 'b', '{}', 's2', 'bridge', datetime('now'), datetime('now'))`
     ).run();
 
     db.prepare(
