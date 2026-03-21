@@ -1,17 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  searchMemory,
-  traverseMemory,
-  getMemoryContext,
-  getMemoryStats,
-  type SearchResult,
-  type TraverseResponse,
-  type ContextResponse,
-  type StatsResponse,
-} from "@/lib/memory-api";
+import { getMemoryStats, type StatsResponse } from "@/lib/memory-api";
 import { MemoryGraph } from "@/components/memory-graph";
+import { useMemorySearch } from "@/hooks/use-memory-search";
+import { useMemoryTraverse } from "@/hooks/use-memory-traverse";
+import { useContextAssembler } from "@/hooks/use-context-assembler";
 
 const SEARCH_MODES = [
   { value: "hybrid", label: "Hybrid" },
@@ -42,21 +36,14 @@ function getRepo(): string {
 
 export default function MemoryExplorerPage() {
   const [repo, setRepo] = useState("");
-  const [query, setQuery] = useState("");
-  const [mode, setMode] = useState("hybrid");
-  const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [selectedNode, setSelectedNode] = useState<SearchResult | null>(null);
-  const [traverse, setTraverse] = useState<TraverseResponse | null>(null);
-  const [traverseLoading, setTraverseLoading] = useState(false);
-
-  const [context, setContext] = useState<ContextResponse | null>(null);
-  const [contextLoading, setContextLoading] = useState(false);
-
   const [stats, setStats] = useState<StatsResponse | null>(null);
+
+  const search = useMemorySearch(repo);
+  const traverse = useMemoryTraverse();
+  const contextAssembler = useContextAssembler();
+
+  // Merge errors from search and context assembler for display
+  const error = search.error ?? contextAssembler.error;
 
   // Load repo from URL on mount
   useEffect(() => {
@@ -72,27 +59,10 @@ export default function MemoryExplorerPage() {
   }, [repo]);
 
   const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
-    setLoading(true);
-    setError(null);
-    setSelectedNode(null);
-    setTraverse(null);
-    setContext(null);
-    try {
-      const res = await searchMemory(
-        query.trim(),
-        repo,
-        mode,
-        selectedKinds.length > 0 ? selectedKinds : undefined,
-      );
-      setResults(res);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Search failed");
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [query, repo, mode, selectedKinds]);
+    traverse.clearNode();
+    contextAssembler.clearContext();
+    await search.search();
+  }, [search, traverse, contextAssembler]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -101,39 +71,9 @@ export default function MemoryExplorerPage() {
     [handleSearch],
   );
 
-  const handleSelectNode = useCallback(async (result: SearchResult) => {
-    setSelectedNode(result);
-    setTraverse(null);
-    setTraverseLoading(true);
-    try {
-      const trav = await traverseMemory(result.node_id, { max_depth: 2, max_nodes: 30 });
-      setTraverse(trav);
-    } catch {
-      setTraverse(null);
-    } finally {
-      setTraverseLoading(false);
-    }
-  }, []);
-
-  const handleAssembleContext = useCallback(async () => {
-    if (!query.trim()) return;
-    setContextLoading(true);
-    setContext(null);
-    try {
-      const ctx = await getMemoryContext(query.trim(), repo, 4000);
-      setContext(ctx);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Context assembly failed");
-    } finally {
-      setContextLoading(false);
-    }
-  }, [query, repo]);
-
-  const toggleKind = useCallback((kind: string) => {
-    setSelectedKinds((prev) =>
-      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind],
-    );
-  }, []);
+  const handleAssembleContext = useCallback(() => {
+    return contextAssembler.assembleContext(search.query, repo);
+  }, [contextAssembler, search.query, repo]);
 
   return (
     <div className="max-w-[1440px] mx-auto px-[var(--s3)] py-[var(--s8)]">
@@ -186,8 +126,8 @@ export default function MemoryExplorerPage() {
               type="text"
               aria-label="Search memory"
               placeholder="Search memory nodes..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={search.query}
+              onChange={(e) => search.setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               className="w-full pl-10 pr-[var(--s4)] py-[var(--s3)] bg-bg border border-border rounded-sm text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent-border focus:shadow-[0_0_0_2px_var(--color-accent-dim)]"
             />
@@ -195,8 +135,8 @@ export default function MemoryExplorerPage() {
 
           {/* Mode selector */}
           <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value)}
+            value={search.mode}
+            onChange={(e) => search.setMode(e.target.value)}
             aria-label="Search mode"
             className="px-[var(--s3)] py-[var(--s3)] bg-bg border border-border rounded-sm text-sm text-text-primary focus:outline-none focus:border-accent-border appearance-none cursor-pointer"
           >
@@ -207,10 +147,10 @@ export default function MemoryExplorerPage() {
 
           <button
             onClick={handleSearch}
-            disabled={loading || !query.trim()}
+            disabled={search.loading || !search.query.trim()}
             className="px-[var(--s5)] py-[var(--s3)] bg-accent-dim border border-accent-border text-accent text-sm font-semibold rounded-sm hover:bg-accent hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Searching..." : "Search"}
+            {search.loading ? "Searching..." : "Search"}
           </button>
         </div>
 
@@ -220,9 +160,9 @@ export default function MemoryExplorerPage() {
           {KIND_OPTIONS.map((kind) => (
             <button
               key={kind}
-              onClick={() => toggleKind(kind)}
+              onClick={() => search.toggleKind(kind)}
               className={`px-[var(--s2)] py-0.5 text-xs font-medium rounded-full border transition-all ${
-                selectedKinds.includes(kind)
+                search.selectedKinds.includes(kind)
                   ? "bg-accent-dim text-accent border-accent-border"
                   : "bg-transparent text-text-secondary border-border hover:border-[rgba(255,255,255,0.12)]"
               }`}
@@ -230,9 +170,9 @@ export default function MemoryExplorerPage() {
               {kind}
             </button>
           ))}
-          {selectedKinds.length > 0 && (
+          {search.selectedKinds.length > 0 && (
             <button
-              onClick={() => setSelectedKinds([])}
+              onClick={search.clearKinds}
               className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
             >
               Clear
@@ -253,14 +193,14 @@ export default function MemoryExplorerPage() {
         <div className="flex flex-col gap-[var(--s3)]">
           <div className="flex items-center gap-[var(--s2)] mb-[var(--s1)]">
             <span className="text-sm font-semibold text-text-secondary uppercase tracking-wider">Results</span>
-            {results.length > 0 && (
+            {search.results.length > 0 && (
               <span className="text-xs font-semibold text-accent bg-accent-dim border border-accent-border px-[var(--s2)] py-0.5 rounded-full">
-                {results.length}
+                {search.results.length}
               </span>
             )}
           </div>
 
-          {results.length === 0 && !loading && (
+          {search.results.length === 0 && !search.loading && (
             <div className="flex flex-col items-center justify-center py-[var(--s12)] text-center">
               <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-12 h-12 text-text-tertiary mb-[var(--s4)]">
                 <ellipse cx="12" cy="5" rx="9" ry="3"/>
@@ -273,12 +213,12 @@ export default function MemoryExplorerPage() {
           )}
 
           <div className="flex flex-col gap-[var(--s2)] max-h-[calc(100vh-340px)] overflow-y-auto timeline-scroll pr-[var(--s1)]">
-            {results.map((result) => (
+            {search.results.map((result) => (
               <button
                 key={result.node_id}
-                onClick={() => handleSelectNode(result)}
+                onClick={() => traverse.selectNode(result)}
                 className={`w-full text-left p-[var(--s4)] border rounded-sm transition-all cursor-pointer ${
-                  selectedNode?.node_id === result.node_id
+                  traverse.selectedNode?.node_id === result.node_id
                     ? "bg-accent-dim border-accent-border shadow-[0_0_0_1px_var(--color-accent-border)]"
                     : "bg-surface border-border hover:border-[rgba(255,255,255,0.12)] hover:bg-surface-raised"
                 }`}
@@ -327,14 +267,14 @@ export default function MemoryExplorerPage() {
               <span className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
                 Relationships
               </span>
-              {selectedNode && (
+              {traverse.selectedNode && (
                 <span className="text-xs text-text-tertiary ml-auto font-mono truncate max-w-[200px]">
-                  {selectedNode.title}
+                  {traverse.selectedNode.title}
                 </span>
               )}
             </div>
             <div className="p-[var(--s4)] min-h-[280px]">
-              {!selectedNode && !traverseLoading && (
+              {!traverse.selectedNode && !traverse.traverseLoading && (
                 <div className="flex flex-col items-center justify-center h-[240px] text-center">
                   <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-10 h-10 text-text-tertiary mb-[var(--s3)]">
                     <circle cx="18" cy="5" r="3"/>
@@ -346,15 +286,15 @@ export default function MemoryExplorerPage() {
                   <div className="text-sm text-text-tertiary">Select a result to explore relationships</div>
                 </div>
               )}
-              {traverseLoading && (
+              {traverse.traverseLoading && (
                 <div className="flex items-center justify-center h-[240px] text-text-tertiary text-sm">
                   Loading graph...
                 </div>
               )}
-              {!traverseLoading && traverse && (
+              {!traverse.traverseLoading && traverse.traverse && (
                 <MemoryGraph
-                  nodes={traverse.nodes}
-                  edges={traverse.edges}
+                  nodes={traverse.traverse.nodes}
+                  edges={traverse.traverse.edges}
                   className="w-full"
                 />
               )}
@@ -378,40 +318,40 @@ export default function MemoryExplorerPage() {
               </div>
               <button
                 onClick={handleAssembleContext}
-                disabled={contextLoading || !query.trim()}
+                disabled={contextAssembler.contextLoading || !search.query.trim()}
                 className="px-[var(--s3)] py-[var(--s2)] text-xs font-semibold bg-success-dim border border-success-border text-success rounded-sm hover:bg-success hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {contextLoading ? "Assembling..." : "Assemble Context"}
+                {contextAssembler.contextLoading ? "Assembling..." : "Assemble Context"}
               </button>
             </div>
 
             <div className="p-[var(--s4)]">
-              {!context && !contextLoading && (
+              {!contextAssembler.context && !contextAssembler.contextLoading && (
                 <div className="flex flex-col items-center justify-center py-[var(--s8)] text-center">
                   <div className="text-sm text-text-tertiary">
                     Enter a query and click <span className="text-text-secondary font-medium">Assemble Context</span> to build a context window
                   </div>
                 </div>
               )}
-              {contextLoading && (
+              {contextAssembler.contextLoading && (
                 <div className="flex items-center justify-center py-[var(--s8)] text-text-tertiary text-sm">
                   Assembling context...
                 </div>
               )}
-              {context && (
+              {contextAssembler.context && (
                 <div className="flex flex-col gap-[var(--s4)]">
                   {/* Summary + token estimate */}
                   <div className="flex items-start justify-between gap-[var(--s3)]">
-                    <p className="text-sm text-text-primary leading-relaxed flex-1">{context.summary}</p>
+                    <p className="text-sm text-text-primary leading-relaxed flex-1">{contextAssembler.context.summary}</p>
                     <span className="shrink-0 text-xs font-semibold text-success bg-success-dim border border-success-border px-[var(--s2)] py-0.5 rounded-full whitespace-nowrap">
-                      ~{context.token_estimate.toLocaleString()} tokens
+                      ~{contextAssembler.context.token_estimate.toLocaleString()} tokens
                     </span>
                   </div>
 
                   {/* Sections */}
-                  {context.sections.length > 0 && (
+                  {contextAssembler.context.sections.length > 0 && (
                     <div className="flex flex-col gap-[var(--s3)]">
-                      {context.sections.map((section, i) => (
+                      {contextAssembler.context.sections.map((section, i) => (
                         <div key={i} className="border border-border rounded-xs overflow-hidden">
                           <div className="flex items-center justify-between px-[var(--s3)] py-[var(--s2)] bg-surface-raised border-b border-border">
                             <span className="text-xs font-semibold text-text-primary">{section.heading}</span>
