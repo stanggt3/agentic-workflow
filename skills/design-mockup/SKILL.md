@@ -3,7 +3,7 @@ name: design-mockup
 description: Generate an HTML mockup informed by the design language, serve it via the visual companion, iterate with feedback until approved, then screenshot the final version as a baseline for /design-verify.
 argument-hint: <screen-name>
 disable-model-invocation: true
-allowed-tools: Bash(*/start-server.sh *), Write, Read
+allowed-tools: Bash(*/start-server.sh *), Bash(mkdir *), Write, Read, Agent, AskUserQuestion
 ---
 
 > **Agentic Workflow** — 21 skills available. Run any as `/<name>`.
@@ -133,14 +133,14 @@ The mockup will be visible in the browser for the user to review.
 
 ## Step 5: Iterate
 
-Ask the user for feedback. Common adjustments:
+Use `AskUserQuestion` to gather feedback from the user. Common adjustments:
 - Layout changes (reorder sections, change grid)
 - Color refinements (too much contrast, wrong emphasis)
 - Typography tweaks (heading sizes, body line-height)
 - Content density (too sparse, too crowded)
 - Missing elements (navigation, footer, status indicators)
 
-Iterate the HTML file until the user approves.
+Apply changes to the HTML file and continue asking via `AskUserQuestion` until the user approves.
 
 ## Step 6: Capture Baseline
 
@@ -150,7 +150,12 @@ Once approved, save the baseline screenshot for `/design-verify`:
 mkdir -p "$HOME/.agentic-workflow/$REPO_SLUG/design"
 ```
 
-Take a screenshot of the approved mockup and save it as:
+Use an `Agent` subagent with Playwright MCP tools to capture the screenshot. The subagent should:
+1. Navigate to the mockup URL served by the visual companion
+2. Take a full-page screenshot
+3. Save it to the baseline path
+
+Baseline path:
 ```
 ~/.agentic-workflow/<repo-slug>/design/mockup-<screen-name>.png
 ```
