@@ -3,7 +3,7 @@ name: design-verify
 description: Screenshot the live implementation, diff against the approved mockup baseline using design-comparison MCP, and report discrepancies with fix suggestions. Detects web vs iOS automatically.
 argument-hint: [screen-name]
 disable-model-invocation: true
-allowed-tools: Read, Write, Glob, Agent
+allowed-tools: Read, Write, Glob, Agent, AskUserQuestion
 ---
 
 > **Agentic Workflow** — 21 skills available. Run any as `/<name>`.

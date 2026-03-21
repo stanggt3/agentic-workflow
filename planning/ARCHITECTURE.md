@@ -35,6 +35,23 @@ graph TD
         User --> |"/bootstrap"| Bootstrap[bootstrap skill]
     end
 
+    subgraph "Claude Code Session — Design"
+        User --> |"/design-analyze"| DesignAnalyze[design-analyze skill]
+        User --> |"/design-language"| DesignLanguage[design-language skill]
+        User --> |"/design-evolve"| DesignEvolve[design-evolve skill]
+        User --> |"/design-mockup"| DesignMockup[design-mockup skill]
+        User --> |"/design-implement"| DesignImplement[design-implement skill]
+        User --> |"/design-refine"| DesignRefine[design-refine skill]
+        User --> |"/design-verify"| DesignVerify[design-verify skill]
+        DesignAnalyze --> DesignLanguage
+        DesignEvolve --> DesignLanguage
+        DesignEvolve --> DesignAnalyze
+        DesignLanguage --> DesignMockup
+        DesignMockup --> DesignImplement
+        DesignImplement --> DesignRefine
+        DesignRefine --> DesignVerify
+    end
+
     Review --> |"gh pr diff"| GitHub
     Review --> |"Agent tool"| Triage[Triage Subagent]
     Triage --> Reviewers[Parallel Reviewer Subagents]
