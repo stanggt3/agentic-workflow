@@ -238,7 +238,7 @@ export async function startMcpServer(dbPath?: string) {
         title: filteredTitle,
         body: filteredBody,
         meta: "{}",
-        source_id: "",
+        source_id: randomUUID(),
         source_type: "manual",
       });
       if (related_to) {

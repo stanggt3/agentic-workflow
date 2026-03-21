@@ -48,22 +48,16 @@ async function main() {
   const ingestionQueue = createBoundedQueue<{ id: string; conversation: string }>({
     maxSize: 500,
     handler: async (event) => {
-      // Look up the message from the bridge DB by conversation, then find by id
-      const messages = db.getMessagesByConversation(event.conversation);
-      const msg = messages.find((m) => m.id === event.id);
+      const msg = db.getMessage(event.id);
       if (!msg) return;
       ingestBridgeMessage(memoryDb, secretFilter, REPO_SLUG, msg);
     },
     onDrop: () => {
       eventBus.emit({ type: "memory:ingestion_dropped", data: { reason: "queue_full" } });
     },
-  });
-
-  // Subscribe EventBus → ingestion queue
-  eventBus.subscribe((event) => {
-    if (event.type === "message:created") {
-      ingestionQueue.enqueue(event.data);
-    }
+    onError: (err) => {
+      console.error("Ingestion queue handler error:", err);
+    },
   });
 
   const messageRoutes = createMessageRoutes(db, eventBus);
@@ -85,14 +79,22 @@ async function main() {
   console.log(`SSE stream available at http://${HOST}:${PORT}/events`);
   console.log(`MCP server available via: node dist/mcp.js`);
 
-  // Background backfill (non-blocking)
-  setImmediate(() => {
-    const result = backfillBridge(memoryDb, db, secretFilter, REPO_SLUG);
+  // Background backfill (non-blocking) — subscribe to EventBus only after backfill completes
+  // to avoid duplicate ingestion from racing with the queue
+  setImmediate(async () => {
+    const result = await backfillBridge(memoryDb, db, secretFilter, REPO_SLUG);
     if (result.ok) {
       console.log(`Memory backfill complete — ${result.data.messages_ingested} messages, ${result.data.tasks_ingested} tasks`);
     } else {
       console.error("Memory backfill failed:", result.error.message);
     }
+
+    // Subscribe EventBus → ingestion queue (after backfill to avoid race)
+    eventBus.subscribe((event) => {
+      if (event.type === "message:created") {
+        ingestionQueue.enqueue(event.data);
+      }
+    });
   });
 }
 

@@ -110,12 +110,12 @@ describe("ingestBridgeTask", () => {
 });
 
 describe("backfillBridge", () => {
-  it("ingests all existing bridge messages", () => {
+  it("ingests all existing bridge messages", async () => {
     const conv = randomUUID();
     sendContext(bridgeDb, { conversation: conv, sender: "a", recipient: "b", payload: "msg1" });
     sendContext(bridgeDb, { conversation: conv, sender: "b", recipient: "a", payload: "msg2" });
 
-    const result = backfillBridge(mdb, bridgeDb, filter, repo);
+    const result = await backfillBridge(mdb, bridgeDb, filter, repo);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.messages_ingested).toBe(2);

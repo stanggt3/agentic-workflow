@@ -34,13 +34,13 @@ CREATE TABLE IF NOT EXISTS nodes (
 
 CREATE INDEX IF NOT EXISTS idx_nodes_repo      ON nodes(repo);
 CREATE INDEX IF NOT EXISTS idx_nodes_repo_kind ON nodes(repo, kind);
-CREATE INDEX IF NOT EXISTS idx_nodes_source    ON nodes(source_type, source_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_nodes_source ON nodes(source_type, source_id);
 
 CREATE TABLE IF NOT EXISTS edges (
   id         TEXT PRIMARY KEY,
   repo       TEXT NOT NULL,
-  from_node  TEXT NOT NULL,
-  to_node    TEXT NOT NULL,
+  from_node  TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+  to_node    TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
   kind       TEXT NOT NULL CHECK (kind IN ('contains','spawned','assigned_in','reply_to','led_to','discussed_in','decided_in','implemented_by','references','related_to')),
   weight     REAL NOT NULL DEFAULT 1.0,
   meta       TEXT NOT NULL DEFAULT '{}',

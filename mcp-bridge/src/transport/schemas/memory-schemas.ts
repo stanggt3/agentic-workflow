@@ -1,29 +1,12 @@
 import { z } from "zod";
+import { NODE_KINDS, EDGE_KINDS } from "../../db/memory-schema.js";
 
-// ── Shared enums ───────────────────────────────────────────
+// ── Shared enums (derived from single source in memory-schema) ──
 
-export const NodeKindSchema = z.enum([
-  "message",
-  "conversation",
-  "topic",
-  "decision",
-  "artifact",
-  "task",
-]);
+export const NodeKindSchema = z.enum(NODE_KINDS);
 export type NodeKind = z.infer<typeof NodeKindSchema>;
 
-export const EdgeKindSchema = z.enum([
-  "contains",
-  "spawned",
-  "assigned_in",
-  "reply_to",
-  "led_to",
-  "discussed_in",
-  "decided_in",
-  "implemented_by",
-  "references",
-  "related_to",
-]);
+export const EdgeKindSchema = z.enum(EDGE_KINDS);
 export type EdgeKind = z.infer<typeof EdgeKindSchema>;
 
 // ── Shared response shapes ─────────────────────────────────
@@ -146,6 +129,7 @@ export const ContextSectionSchema = z.object({
   heading: z.string(),
   content: z.string(),
   token_estimate: z.number(),
+  relevance: z.number(),
 });
 export type ContextSection = z.infer<typeof ContextSectionSchema>;
 

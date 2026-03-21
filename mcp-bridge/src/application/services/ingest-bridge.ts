@@ -59,7 +59,7 @@ export function ingestBridgeMessage(
     const msgNode = mdb.insertNode({
       repo,
       kind: "message",
-      title: message.payload.slice(0, 120),
+      title: filter.redact(message.payload.slice(0, 120)),
       body: filter.redact(message.payload),
       meta: JSON.stringify({
         sender: message.sender,
@@ -103,7 +103,7 @@ export function ingestBridgeTask(
     const taskNode = mdb.insertNode({
       repo,
       kind: "task",
-      title: task.summary,
+      title: filter.redact(task.summary),
       body: filter.redact(task.details),
       meta: JSON.stringify({
         domain: task.domain,
@@ -137,17 +137,25 @@ export interface BackfillResult {
   tasks_ingested: number;
 }
 
-export function backfillBridge(
+const BACKFILL_BATCH_SIZE = 100;
+
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+export async function backfillBridge(
   mdb: MemoryDbClient,
   bridgeDb: DbClient,
   filter: SecretFilter,
   repo: string,
-): AppResult<BackfillResult> {
+): Promise<AppResult<BackfillResult>> {
   const conversations = bridgeDb.getConversations(10000, 0);
   let messagesIngested = 0;
   let tasksIngested = 0;
 
-  for (const conv of conversations) {
+  for (let i = 0; i < conversations.length; i++) {
+    const conv = conversations[i];
+
     const messages = bridgeDb.getMessagesByConversation(conv.conversation);
     for (const msg of messages) {
       const result = ingestBridgeMessage(mdb, filter, repo, msg);
@@ -158,6 +166,11 @@ export function backfillBridge(
     for (const task of tasks) {
       const result = ingestBridgeTask(mdb, filter, repo, task);
       if (result.ok) tasksIngested++;
+    }
+
+    // Yield to event loop every BACKFILL_BATCH_SIZE conversations
+    if ((i + 1) % BACKFILL_BATCH_SIZE === 0) {
+      await yieldToEventLoop();
     }
   }
 

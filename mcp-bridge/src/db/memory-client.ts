@@ -79,7 +79,7 @@ export interface MemoryDbClient {
   // Embeddings
   insertEmbedding(nodeId: string, embedding: Float32Array): void;
   getEmbedding(nodeId: string): Float32Array | undefined;
-  searchKNN(query: Float32Array, limit: number): Array<{ node_id: string; distance: number }>;
+  searchKNN(query: Float32Array, limit: number, repo?: string): Array<{ node_id: string; distance: number }>;
 
   // Stats
   getStats(repo: string): MemoryStats;
@@ -87,8 +87,6 @@ export interface MemoryDbClient {
   // Transaction
   transaction<T>(fn: () => T): T;
 
-  // Raw db access (for sqlite-vec operations added later)
-  raw: Database.Database;
 }
 
 // ── Factory ────────────────────────────────────────────────
@@ -233,7 +231,19 @@ export function createMemoryDbClient(db: Database.Database): MemoryDbClient {
     },
 
     searchFTS(query, repo, limit) {
-      return stmts.searchFTS.all({ query, repo, limit }) as FTSResult[];
+      // Sanitize FTS5 query: quote each word to prevent parse errors from special chars
+      const sanitized = query
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => `"${word.replace(/"/g, '""')}"`)
+        .join(" ");
+      if (!sanitized) return [];
+      try {
+        return stmts.searchFTS.all({ query: sanitized, repo, limit }) as FTSResult[];
+      } catch {
+        // FTS5 parse errors (e.g. malformed MATCH syntax) → empty result
+        return [];
+      }
     },
 
     getStats(repo) {
@@ -252,14 +262,27 @@ export function createMemoryDbClient(db: Database.Database): MemoryDbClient {
       return new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4);
     },
 
-    searchKNN(query, limit) {
-      return stmts.searchKNN.all(Buffer.from(query.buffer), limit) as Array<{ node_id: string; distance: number }>;
+    searchKNN(query, limit, repo?) {
+      if (!repo) {
+        return stmts.searchKNN.all(Buffer.from(query.buffer), limit) as Array<{ node_id: string; distance: number }>;
+      }
+      // Fetch extra candidates (limit * 3) then post-filter by repo via nodes table join.
+      // sqlite-vec KNN queries don't support JOIN, so we over-fetch and filter in JS.
+      const overFetchLimit = limit * 3;
+      const candidates = stmts.searchKNN.all(Buffer.from(query.buffer), overFetchLimit) as Array<{ node_id: string; distance: number }>;
+      const filtered: Array<{ node_id: string; distance: number }> = [];
+      for (const candidate of candidates) {
+        if (filtered.length >= limit) break;
+        const node = stmts.getNode.get({ id: candidate.node_id }) as NodeRow | undefined;
+        if (node && node.repo === repo) {
+          filtered.push(candidate);
+        }
+      }
+      return filtered;
     },
 
     transaction<T>(fn: () => T): T {
       return db.transaction(fn)();
     },
-
-    raw: db,
   };
 }

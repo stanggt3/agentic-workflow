@@ -4,6 +4,7 @@ export interface BoundedQueueOptions<T> {
   maxSize: number;
   handler: (item: T) => Promise<void>;
   onDrop?: (item: T) => void;
+  onError?: (error: unknown) => void;
 }
 
 export interface BoundedQueue<T> {
@@ -13,7 +14,7 @@ export interface BoundedQueue<T> {
 }
 
 export function createBoundedQueue<T>(options: BoundedQueueOptions<T>): BoundedQueue<T> {
-  const { maxSize, handler, onDrop } = options;
+  const { maxSize, handler, onDrop, onError } = options;
   const buffer: T[] = [];
   let processing = false;
   let stopped = false;
@@ -25,7 +26,7 @@ export function createBoundedQueue<T>(options: BoundedQueueOptions<T>): BoundedQ
     const item = buffer.shift()!;
 
     handler(item)
-      .catch(() => { /* handler errors are silently dropped */ })
+      .catch((err) => { onError?.(err); })
       .finally(() => {
         processing = false;
         if (!stopped && buffer.length > 0) {
