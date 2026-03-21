@@ -1,7 +1,7 @@
 ---
 name: design-verify
 description: Screenshot the live implementation, diff against the approved mockup baseline using design-comparison MCP, and report discrepancies with fix suggestions. Detects web vs iOS automatically.
-argument-hint:
+argument-hint: [screen-name]
 disable-model-invocation: true
 allowed-tools: Read, Write, Glob, Agent
 ---
@@ -117,7 +117,9 @@ Find mockup baselines in the design output directory:
 Glob("~/.agentic-workflow/<repo-slug>/design/mockup-*.png")
 ```
 
-If no baselines found:
+**Filtering by screen-name:** If a `[screen-name]` argument was provided (e.g., `/design-verify dashboard`), filter the baselines to only those matching `mockup-<screen-name>.png`. If no argument was provided, verify all baselines found.
+
+If no baselines match (either no baselines exist, or the specified screen-name has no baseline):
 > "No mockup baselines found. Run `/design-mockup <screen-name>` first to create a baseline."
 
 ## Step 3: Capture Implementation Screenshots
@@ -152,14 +154,10 @@ Spawn an Agent to capture simulator screenshots:
 
 ## Step 4: Diff Against Baselines
 
-For each implementation screenshot, use design-comparison MCP:
+For each implementation screenshot, call the design-comparison MCP tool `compare_design` with these parameters:
 
-```
-compare_design(
-  reference: ~/.agentic-workflow/<repo-slug>/design/mockup-<screen>.png,
-  implementation: ~/.agentic-workflow/<repo-slug>/design/impl-<screen>-<viewport>.png
-)
-```
+- **reference:** `~/.agentic-workflow/<repo-slug>/design/mockup-<screen>.png`
+- **implementation:** `~/.agentic-workflow/<repo-slug>/design/impl-<screen>-<viewport>.png`
 
 The MCP returns:
 - Pixel diff percentage
@@ -175,12 +173,12 @@ Save diff images:
 ### Pass (< 2% diff):
 
 ```
-✓ Verification Passed
-=====================
+[PASS] Verification Passed
+===========================
 
 Screen:     <screen-name>
 Diff:       <N>% (threshold: 2%)
-Viewports:  mobile ✓, tablet ✓, desktop ✓
+Viewports:  mobile [pass], tablet [pass], desktop [pass]
 
 Implementation matches the approved mockup.
 ```
@@ -188,8 +186,8 @@ Implementation matches the approved mockup.
 ### Minor Discrepancies (2–10% diff):
 
 ```
-⚠ Minor Discrepancies Found
-============================
+[WARN] Minor Discrepancies Found
+==================================
 
 Screen:     <screen-name>
 Diff:       <N>%
@@ -212,8 +210,8 @@ Diff images saved to ~/.agentic-workflow/<repo-slug>/design/
 ### Major Discrepancies (> 10% diff):
 
 ```
-✗ Major Discrepancies Found
-============================
+[FAIL] Major Discrepancies Found
+==================================
 
 Screen:     <screen-name>
 Diff:       <N>%
