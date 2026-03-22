@@ -4,6 +4,25 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 
+# Check for jq (required by statusline install and runtime)
+if ! command -v jq &>/dev/null; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║                  MISSING REQUIRED DEPENDENCY                ║"
+  echo "║                                                              ║"
+  echo "║  jq is required to install and run the Claude Code          ║"
+  echo "║  statusline. Without it, setup cannot wire the statusline   ║"
+  echo "║  into your Claude settings and the script will not work.    ║"
+  echo "║                                                              ║"
+  echo "║  Install jq, then re-run setup:                             ║"
+  echo "║    brew install jq        (macOS)                           ║"
+  echo "║    apt-get install jq     (Debian/Ubuntu)                   ║"
+  echo "║    dnf install jq         (Fedora/RHEL)                     ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  exit 1
+fi
+
 # Canonical list of skills managed by this toolkit
 MANAGED_SKILLS=(review postReview addressReview enhancePrompt rootCause bugHunt bugReport shipRelease syncDocs weeklyRetro officeHours productReview archReview design-analyze design-language design-evolve design-mockup design-implement design-refine design-verify)
 
@@ -152,6 +171,126 @@ if [ -f "$SETTINGS_FILE" ]; then
 else
   cp "$SCRIPT_DIR/config/settings.json" "$SETTINGS_FILE"
   echo "  settings.json: copied"
+fi
+
+# --- Statusline ---
+echo ""
+echo "Installing statusline..."
+cp "$SCRIPT_DIR/config/statusline.sh" "$CLAUDE_DIR/statusline.sh"
+chmod +x "$CLAUDE_DIR/statusline.sh"
+echo "  statusline script installed"
+
+# Merge statusLine into existing settings.json if absent
+if [ -f "$SETTINGS_FILE" ]; then
+  if command -v jq &>/dev/null; then
+    # Add statusLine key if absent (use has() so null values are not re-merged)
+    if ! jq -e 'has("statusLine")' "$SETTINGS_FILE" &>/dev/null; then
+      jq '. + {"statusLine": {"type": "command", "command": "~/.claude/statusline.sh"}}' \
+        "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" \
+        && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      echo "  statusLine config added to existing settings.json"
+    fi
+
+    # Merge Stop hook if not already present
+    if ! jq -e 'has("hooks") and (.hooks | has("Stop"))' "$SETTINGS_FILE" &>/dev/null; then
+      STOP_HOOK='[{"hooks":[{"type":"command","command":"SHELL_PID=$(cat \"$HOME/.claude/shell_pid\" 2>/dev/null); [ -n \"$SHELL_PID\" ] && kill -WINCH \"$SHELL_PID\" 2>/dev/null; sleep 0.05; true"}]}]'
+      jq --argjson stop "$STOP_HOOK" '.hooks.Stop = $stop' \
+        "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" \
+        && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      echo "  hooks.Stop added to existing settings.json"
+    fi
+
+    # Merge PreToolUse hook if not already present
+    if ! jq -e 'has("hooks") and (.hooks | has("PreToolUse"))' "$SETTINGS_FILE" &>/dev/null; then
+      PRETOOLUSE_HOOK='[{"matcher":".*","hooks":[{"type":"command","command":"SHELL_PID=$(cat \"$HOME/.claude/shell_pid\" 2>/dev/null); [ -n \"$SHELL_PID\" ] && kill -WINCH \"$SHELL_PID\" 2>/dev/null; true"}]}]'
+      jq --argjson ptu "$PRETOOLUSE_HOOK" '.hooks.PreToolUse = $ptu' \
+        "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" \
+        && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      echo "  hooks.PreToolUse added to existing settings.json"
+    fi
+  fi
+fi
+
+# --- Shell Integration (terminal width sync for statusline) ---
+echo ""
+echo "Installing shell integration..."
+
+SHELL_INTEGRATION_FILE="$CLAUDE_DIR/shell-integration.sh"
+# Write integration content to a temp file first; skip overwrite if identical
+_SI_TMP="$(mktemp)"
+cat > "$_SI_TMP" << 'SHELL_EOF'
+# Claude Code shell integration — written by agentic-workflow setup.sh
+# Keeps ~/.claude/terminal_width updated so statusline.sh can read the actual
+# terminal width. Claude Code subprocesses cannot access /dev/tty or $COLUMNS,
+# so the interactive shell (which always has the correct value) writes it here.
+#
+# Also writes ~/.claude/shell_pid so Claude Code hooks can send SIGWINCH to
+# this shell, triggering a width update mid-session when the window is resized.
+# When zsh receives SIGWINCH it calls ioctl(TIOCGWINSZ) on its terminal and
+# updates $COLUMNS before running the WINCH trap — so $COLUMNS is always current.
+
+_claude_update_width() {
+  # Write our PID so hooks can find and signal us
+  printf '%s\n' "$$" > "$HOME/.claude/shell_pid"
+  # Use $COLUMNS (updated by zsh/bash via ioctl on SIGWINCH) as primary source.
+  # tput cols fallback covers environments where $COLUMNS isn't set.
+  local width="${COLUMNS:-$(tput cols 2>/dev/null)}"
+  [ -n "$width" ] && [ "$width" -gt 0 ] 2>/dev/null && \
+    printf '%s\n' "$width" > "$HOME/.claude/terminal_width"
+}
+
+if [ -n "$ZSH_VERSION" ]; then
+  autoload -U add-zsh-hook 2>/dev/null && add-zsh-hook precmd _claude_update_width
+  trap '_claude_update_width' WINCH
+elif [ -n "$BASH_VERSION" ]; then
+  [[ "$PROMPT_COMMAND" != *"_claude_update_width"* ]] && \
+    PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }_claude_update_width"
+  trap '_claude_update_width' WINCH
+fi
+
+_claude_update_width
+SHELL_EOF
+
+if cmp -s "$_SI_TMP" "$SHELL_INTEGRATION_FILE" 2>/dev/null; then
+  echo "  shell-integration.sh: already up to date (skipped)"
+else
+  mv "$_SI_TMP" "$SHELL_INTEGRATION_FILE"
+  echo "  shell-integration.sh: written"
+fi
+rm -f "$_SI_TMP"
+
+# Add one source line to shell config if not already present
+INTEGRATION_LINE='[ -f ~/.claude/shell-integration.sh ] && source ~/.claude/shell-integration.sh'
+SHELL_CONFIGS=("$HOME/.zshrc" "$HOME/.bashrc")
+ADDED_TO=()
+
+for shell_config in "${SHELL_CONFIGS[@]}"; do
+  if [ -f "$shell_config" ]; then
+    if ! grep -qF 'source ~/.claude/shell-integration.sh' "$shell_config" 2>/dev/null; then
+      printf '\n# Claude Code statusline width sync\n%s\n' "$INTEGRATION_LINE" >> "$shell_config"
+      ADDED_TO+=("$shell_config")
+      echo "  Added to $shell_config"
+    else
+      echo "  Already in $shell_config"
+    fi
+  fi
+done
+
+# Initialize the width file immediately from the current interactive shell's tty.
+# Running shell-integration.sh in a non-interactive subshell leaves $COLUMNS unset,
+# causing tput to return 80 regardless of actual terminal size. Reading from /dev/tty
+# directly via stty gives the real dimensions of the parent terminal.
+CURRENT_WIDTH=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
+CURRENT_WIDTH="${CURRENT_WIDTH:-${COLUMNS:-80}}"
+printf '%s\n' "$CURRENT_WIDTH" > "$CLAUDE_DIR/terminal_width"
+echo "  terminal_width initialized: $CURRENT_WIDTH cols"
+
+if [ "${#ADDED_TO[@]}" -gt 0 ]; then
+  echo ""
+  echo "  Shell integration added. To enable width sync in this session:"
+  for config in "${ADDED_TO[@]}"; do
+    echo "    source $config"
+  done
 fi
 
 # --- MCP Config ---
@@ -338,6 +477,7 @@ echo "                    design-mockup, design-implement, design-refine, design
 echo "  Utilities:        enhancePrompt, bootstrap"
 echo ""
 echo "Config location:    $CLAUDE_DIR/"
+echo "Statusline:         $CLAUDE_DIR/statusline.sh"
 echo "Output directory:   ~/.agentic-workflow/<repo-slug>/"
 echo "MCP bridge:         $BRIDGE_DIR/"
 echo "MCP registered:     Claude Code + Codex (agentic-bridge)"
