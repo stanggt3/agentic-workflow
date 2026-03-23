@@ -75,7 +75,7 @@ Result: `org-repo` (e.g., `myorg-myrepo`). All output paths use `~/.agentic-work
 | QA | `/bugHunt`, `/bugReport` | `qa/` |
 | Releases | `/shipRelease`, `/syncDocs` | `releases/` |
 | Retrospectives | `/weeklyRetro` | `retros/` |
-| Planning | `/officeHours`, `/productReview`, `/archReview` | `plans/` |
+| Planning | `/officeHours`, `/productReview`, `/archReview` | `plans/` (`officeHours` writes to `plans/<feature>/`) |
 | Design | `/design-mockup`, `/design-verify` | `design/` |
 
 Skills that output files always write to `~/.agentic-workflow/$REPO_SLUG/<domain>/` — never to the project directory.
