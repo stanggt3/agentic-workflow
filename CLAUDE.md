@@ -37,7 +37,7 @@ Domain-specific rules are in `.claude/rules/` — they load automatically when w
 agentic-workflow/
 ├── skills/        # 22 Claude Code custom skills (symlinked to ~/.claude/skills/)
 ├── bootstrap/     # /bootstrap skill — repo documentation generator
-├── config/        # Settings, MCP config, and statusline script
+├── config/        # Settings, MCP config, statusline script, and safety hooks
 ├── mcp-bridge/    # MCP bridge + REST API (Fastify, SQLite, sqlite-vec)
 ├── ui/            # Next.js 15 App Router conversation dashboard
 ├── planning/      # Project documentation
@@ -45,8 +45,7 @@ agentic-workflow/
 ├── .serena/       # Serena LSP project configuration
 ├── scripts/       # Utility scripts (serena-docker wrapper)
 ├── start.sh       # Start bridge + UI together
-└── setup.sh       # One-command setup: skills, statusline, config, bridge, Serena, UI
-```
+└── setup.sh       # One-command setup: skills, statusline, hooks, config, bridge, Serena, UI
 ```
 
 ## Commands
