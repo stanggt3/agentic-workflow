@@ -1,7 +1,6 @@
 ---
 name: design-implement
 description: Detect web vs iOS automatically and delegate to /design-implement-web (CSS/Tailwind/Next.js) or /design-implement-ios (SwiftUI Theme.swift). Generates production code from approved mockup.
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(ls *), Glob, Read, AskUserQuestion, Skill
 ---
 <!-- MEMORY: SKIP -->

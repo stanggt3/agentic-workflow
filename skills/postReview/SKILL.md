@@ -2,7 +2,6 @@
 name: postReview
 description: Publish a completed /review to GitHub as batched PR comments. Reads from ~/.agentic-workflow/<repo-slug>/reviews/<pr>.json and posts one review per agent (minimizing API calls). Use after /review has written a local state file and you are ready to publish.
 argument-hint: [pr-number]
-disable-model-invocation: true
 allowed-tools: Bash(gh *), Bash(git *), Read, Edit
 ---
 <!-- MEMORY: SKIP -->

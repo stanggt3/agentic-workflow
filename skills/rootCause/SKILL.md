@@ -2,7 +2,6 @@
 name: rootCause
 description: 4-phase systematic debugging — investigate, analyze, hypothesize, implement. Auto-freezes scope to the module boundary to prevent scope creep.
 argument-hint: "[error-message-or-issue-description]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Agent, Read, Write, Edit, Glob, Grep, Skill
 ---
 

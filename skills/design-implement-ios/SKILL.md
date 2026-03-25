@@ -1,7 +1,6 @@
 ---
 name: design-implement-ios
 description: Generate SwiftUI Theme.swift and view components from an approved iOS mockup using design-tokens.json. Supports light/dark color schemes following iOS HIG.
-disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Glob, Bash(git *), AskUserQuestion
 ---
 

@@ -2,7 +2,6 @@
 name: design-verify-ios
 description: Boot simulator if needed, capture screenshot via XcodeBuildMCP, diff against mockup baseline using design-comparison MCP. Reports discrepancies with fix suggestions.
 argument-hint: [screen-name]
-disable-model-invocation: true
 allowed-tools: Bash(source ~/.claude/skills/*), Read, Write, Glob, AskUserQuestion
 ---
 <!-- MEMORY: SKIP -->

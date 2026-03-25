@@ -2,7 +2,6 @@
 name: design-mockup-web
 description: Generate an HTML mockup informed by the design language, serve it via the visual companion, iterate with feedback until approved, then screenshot the final version as a baseline for /design-verify-web.
 argument-hint: <screen-name>
-disable-model-invocation: true
 allowed-tools: Bash(*/start-server.sh *), Bash(mkdir *), Write, Read, Agent, AskUserQuestion
 ---
 

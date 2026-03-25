@@ -2,7 +2,6 @@
 name: addressReview
 description: Address PR review comments by spawning domain-specific implementation agents in parallel. Reads from ~/.agentic-workflow/<repo-slug>/reviews/<pr>.json as source of truth, merges any new human GitHub comments, implements fixes, and updates the state file. Can be re-run to continue the review loop.
 argument-hint: [pr-number-or-url]
-disable-model-invocation: true
 allowed-tools: Bash(gh *), Bash(git *), Agent, Read, Edit
 ---
 

@@ -2,7 +2,6 @@
 name: review
 description: Orchestrate a multi-agent PR code review. Spawns domain-specific reviewer subagents in parallel based on changed files. Findings are saved to ~/.agentic-workflow/<repo-slug>/reviews/<pr>.json — run /postReview to publish to GitHub.
 argument-hint: [pr-number-or-url]
-disable-model-invocation: true
 allowed-tools: Bash(gh *), Bash(git *), Agent, Read, Write, Skill
 ---
 

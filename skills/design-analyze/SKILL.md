@@ -1,7 +1,6 @@
 ---
 name: design-analyze
 description: Detect web vs iOS automatically and delegate to /design-analyze-web (Dembrandt CLI on URLs) or /design-analyze-ios (Swift/Xcode asset extraction). Writes design-tokens.json.
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(ls *), Glob, Read, AskUserQuestion, Skill
 ---
 <!-- MEMORY: SKIP -->

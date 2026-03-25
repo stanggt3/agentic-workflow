@@ -2,7 +2,6 @@
 name: design-analyze-web
 description: Run Dembrandt on reference site URLs to extract design tokens (colors, typography, spacing) as W3C DTCG JSON. Merges multiple sites, resolves conflicts by frequency/prominence, and writes design-tokens.json.
 argument-hint: <url> [url2...]
-disable-model-invocation: true
 allowed-tools: Bash(npx dembrandt *), Bash(git *), Read, Write, Glob, AskUserQuestion
 ---
 

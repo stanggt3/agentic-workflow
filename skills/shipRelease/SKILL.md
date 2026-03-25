@@ -2,7 +2,6 @@
 name: shipRelease
 description: Ship a release — sync branch, run tests, audit coverage, push, open PR, then auto-invoke /syncDocs to update documentation.
 argument-hint: "[--base main] [--skip-docs]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(gh *), Bash(npm *), Bash(npx *), Read, Glob, Grep, Skill
 ---
 <!-- MEMORY: SKIP -->

@@ -2,7 +2,6 @@
 name: officeHours
 description: "Spec-driven brainstorming session with EARS-format requirements. Outputs domain-specific docs (product.md, engineering.md, design-brief.md, TASKS.md) to plans/ directory — each assignable to its owning team."
 argument-hint: "[feature-or-problem-description]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Agent, Read, Write, Glob, Grep, Skill
 ---
 

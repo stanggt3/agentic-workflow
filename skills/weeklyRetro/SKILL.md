@@ -2,7 +2,6 @@
 name: weeklyRetro
 description: Weekly retrospective — analyzes git history for per-person breakdowns, shipping streaks, test health trends, and generates actionable insights.
 argument-hint: "[--weeks N] [--team user1,user2,...]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(npm *), Bash(npx *), Read, Write, Glob, Grep
 ---
 

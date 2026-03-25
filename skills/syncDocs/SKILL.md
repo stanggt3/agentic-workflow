@@ -2,7 +2,6 @@
 name: syncDocs
 description: Post-ship documentation updater — refreshes README, ARCHITECTURE.md, CHANGELOG, and CLAUDE.md to reflect recent changes.
 argument-hint: "[--scope readme,architecture,changelog,claude]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Agent, Read, Write, Edit, Glob, Grep
 ---
 <!-- MEMORY: SKIP -->

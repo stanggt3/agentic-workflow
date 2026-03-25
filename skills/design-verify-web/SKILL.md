@@ -2,7 +2,6 @@
 name: design-verify-web
 description: Playwright screenshots at mobile/tablet/desktop viewports, diff against mockup baseline using design-comparison MCP, and report discrepancies with fix suggestions.
 argument-hint: [screen-name]
-disable-model-invocation: true
 allowed-tools: Read, Write, Glob, Agent, AskUserQuestion
 ---
 <!-- MEMORY: SKIP -->

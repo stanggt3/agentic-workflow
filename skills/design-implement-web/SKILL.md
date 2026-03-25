@@ -1,7 +1,6 @@
 ---
 name: design-implement-web
 description: Generate web production code from an approved mockup using Design Token Bridge MCP for CSS/Tailwind token files. React/Next.js component generation with full token coverage.
-disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Glob, Bash(git *), Bash(npx design-token-bridge-mcp *), AskUserQuestion
 ---
 

@@ -2,7 +2,6 @@
 name: archReview
 description: Engineering architecture review with mandatory diagrams and edge case analysis. Reviews plans or implementations for technical soundness.
 argument-hint: "[plan-file-or-directory-to-review]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Agent, Read, Write, Glob, Grep
 ---
 

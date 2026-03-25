@@ -2,7 +2,6 @@
 name: enhancePrompt
 description: Use when the user invokes /enhancePrompt — discovers available project documentation, reads relevant files, and rewrites the user's request with richer context before execution
 argument-hint: [prompt-to-enhance]
-disable-model-invocation: true
 allowed-tools: Read, Glob, Grep
 ---
 

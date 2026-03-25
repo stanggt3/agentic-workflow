@@ -2,7 +2,6 @@
 name: verify-ios
 description: "XcodeBuildMCP-based iOS simulator verification. Default: snapshot_ui (view hierarchy structured check). --visual: screenshot for pixel inspection. Auto mode infers screens from Swift file changes in git diff."
 argument-hint: "[--visual] [criteria or 'auto']"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(source ~/.claude/skills/*), Read, Glob, AskUserQuestion
 ---
 

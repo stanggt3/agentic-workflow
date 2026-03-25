@@ -2,7 +2,6 @@
 name: bugHunt
 description: Fix-and-verify loop with atomic commits and regression test generation. Three tiers — quick (lint+typecheck), standard (unit+integration), exhaustive (full suite + edge cases).
 argument-hint: "[--tier quick|standard|exhaustive] [bug-description-or-test-command]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(npm *), Bash(npx *), Agent, Read, Write, Edit, Glob, Grep, Skill
 ---
 

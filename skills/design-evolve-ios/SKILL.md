@@ -2,7 +2,6 @@
 name: design-evolve-ios
 description: Extract design tokens from a local Swift file or Xcode project directory and merge updates into the existing design-tokens.json, preserving tokens not present in the reference.
 argument-hint: <path/to/Theme.swift or project dir>
-disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Glob, AskUserQuestion
 ---
 

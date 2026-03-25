@@ -2,7 +2,6 @@
 name: design-language
 description: Interactive session defining brand personality, aesthetic direction, and design principles. Reads existing tokens and DESIGN_SYSTEM.md for context, asks strategic questions, and writes .impeccable.md.
 argument-hint:
-disable-model-invocation: true
 allowed-tools: Read, Write, AskUserQuestion
 ---
 

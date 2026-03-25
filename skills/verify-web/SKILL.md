@@ -2,7 +2,6 @@
 name: verify-web
 description: "Playwright-based self-verification of running web apps. Two modes: explicit criteria or diff-inference from recent changes. Accessibility snapshots by default, --visual for screenshots."
 argument-hint: "[--visual] [criteria or 'auto']"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Agent, Read, Write, Glob, Grep, AskUserQuestion
 ---
 

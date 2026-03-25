@@ -2,7 +2,6 @@
 name: bugReport
 description: Report-only variant of bugHunt — produces a structured bug report with health scores but does NOT fix the bugs. Use for triage and prioritization.
 argument-hint: "[area-or-module-to-audit]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(npm *), Bash(npx *), Agent, Read, Glob, Grep, Write
 ---
 

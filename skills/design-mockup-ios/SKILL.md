@@ -1,7 +1,6 @@
 ---
 name: design-mockup-ios
 description: Generate a Mockup.swift SwiftUI preview file from design tokens, build and run on simulator via XcodeBuildMCP, capture a screenshot as the baseline for /design-verify-ios.
-disable-model-invocation: true
 allowed-tools: Bash(source ~/.claude/skills/*), Read, Write, Glob, AskUserQuestion
 ---
 

@@ -2,7 +2,6 @@
 name: design-evolve-web
 description: Analyze a new reference URL mid-project and selectively merge design tokens into the existing design language. Diffs new tokens against current, asks what to adopt/adapt/ignore, updates design-tokens.json and .impeccable.md.
 argument-hint: <url>
-disable-model-invocation: true
 allowed-tools: Bash(npx dembrandt *), Bash(git *), Read, Write, Edit, AskUserQuestion
 ---
 

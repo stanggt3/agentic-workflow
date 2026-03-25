@@ -2,7 +2,6 @@
 name: bootstrap
 description: Analyze a repo's documentation coverage against the Pivot doc standard (17 planning docs + CLAUDE.md + design language), then generate any missing docs adapted to the target repo's tech stack and domain. Calls /enhancePrompt first for context.
 argument-hint: [--force to regenerate existing docs]
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(ls *), Bash(find *), Agent, Read, Write, Glob, Grep, Skill
 ---
 

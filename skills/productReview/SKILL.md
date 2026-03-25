@@ -2,7 +2,6 @@
 name: productReview
 description: "Founder/product lens review of plans with 4 scope modes -- mvp, growth, scale, pivot. Challenges assumptions and tightens scope."
 argument-hint: "[--mode mvp|growth|scale|pivot] [plan-file-or-description]"
-disable-model-invocation: true
 allowed-tools: Bash(git *), Agent, Read, Write, Glob, Grep
 ---
 
