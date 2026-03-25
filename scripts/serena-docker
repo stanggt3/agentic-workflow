@@ -75,7 +75,12 @@ if [ -f "${REPO_PATH}/.serena/project.yml" ] && grep -qE '^[[:space:]]*-[[:space
 
       # R1: Kill any orphaned host socat from a prior session (its wrapper exited
       # but socat kept running, holding the old inode open as an unlinked file).
-      pkill -f "socat.*UNIX-LISTEN:${SOCKET_PATH}" 2>/dev/null || true
+      # Use SIGKILL (-9) so the process is gone before we rm the socket; SIGTERM
+      # leaves a window where a new socat can start before the old one exits,
+      # producing duplicate listeners.
+      pkill -9 -f "socat.*UNIX-LISTEN:${SOCKET_PATH}" 2>/dev/null || true
+      # Brief wait for the kernel to reclaim the socket inode from the killed process
+      sleep 0.1
 
       # Remove any stale socket file so the new socat gets a clean bind
       rm -f "${SOCKET_PATH}"

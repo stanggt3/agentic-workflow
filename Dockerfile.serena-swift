@@ -27,9 +27,18 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # --- sourcekit-lsp shim: Serena invokes this as if it were the real LSP binary ---
-# Connects to the socket the host created at /tmp/sourcekit-lsp.sock
+# Connects to the socket the host created at /tmp/sourcekit-lsp.sock.
+# Probe guard: Serena calls `sourcekit-lsp -h` at startup to verify the binary
+# is available before opening an LSP session. Without this guard, the shim would
+# connect to the socket (spawning a real sourcekit-lsp on the host) and block
+# indefinitely — the probe would time out and Serena would mark Swift LSP as failed.
 RUN printf '%s\n' \
       '#!/bin/sh' \
+      '# Probe guard: exit immediately for capability-check invocations.' \
+      '# Serena uses -h to verify the binary exists; it expects a quick exit, not LSP.' \
+      'case "${1:-}" in' \
+      '  -h|--help|--version) exit 0 ;;' \
+      'esac' \
       '# Startup retry loop: up to 15 attempts (~30s) for the host socat to bind.' \
       '# socat exits 1 on ECONNREFUSED, exits 0 on clean connection close.' \
       '# After a successful connection, exit and let Serena restart us if needed.' \
