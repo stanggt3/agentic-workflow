@@ -48,6 +48,18 @@ allowed-tools: Bash(git *), Bash(ls *), Glob, Read, AskUserQuestion, Skill
 >
 > **Output directory:** `~/.agentic-workflow/<repo-slug>/`
 
+## Codebase Navigation
+
+Prefer **Serena** for all code exploration — LSP-based symbol lookup is faster and more precise than file scanning.
+
+| Task | Tool |
+|------|------|
+| Find a function, class, or symbol | `serena: find_symbol` |
+| What references symbol X? | `serena: find_referencing_symbols` |
+| Module/file structure overview | `serena: get_symbols_overview` |
+| Search for a string or pattern | `Grep` (fallback) |
+| Read a full file | `Read` (fallback) |
+
 ## Preamble — Bootstrap Check
 
 Before running this skill, verify the environment is set up:
