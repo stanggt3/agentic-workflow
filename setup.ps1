@@ -1012,8 +1012,14 @@ if (-not $HeadroomBin) {
 }
 
 if ($HasClaude -and $HeadroomBin) {
-    & claude mcp add --scope user headroom -- $HeadroomBin mcp serve 2>$null
-    Write-Info "headroom: registered with Claude Code"
+    $mcpListHr = & claude mcp list 2>&1
+    if ($mcpListHr -match "headroom") {
+        Write-Info "headroom: already registered with Claude Code"
+    }
+    else {
+        & claude mcp add --scope user headroom -- $HeadroomBin mcp serve 2>$null
+        Write-Info "headroom: registered with Claude Code"
+    }
 }
 
 if ($HasCodex -and $HeadroomBin) {
