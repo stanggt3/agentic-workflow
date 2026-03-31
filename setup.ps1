@@ -351,6 +351,11 @@ if (-not $HasBash) {
 # Build hook command prefix: use Git Bash path when available, plain path otherwise
 $HookPrefix = if ($HasBash) { "`"$BashExe`" " } else { "" }
 
+# Compute MSYS2 absolute path for the hooks dir so hook commands work when Claude Code
+# invokes bash via cmd.exe (where ~ is NOT expanded by bash receiving it as a path argument)
+# e.g. C:\Users\Randy\.claude\hooks → /c/Users/Randy/.claude/hooks
+$HooksMsysPath = "/" + $HooksDir.Substring(0, 1).ToLower() + $HooksDir.Substring(2).Replace('\', '/')
+
 # Merge safety hooks into settings.json (idempotent replace of Bash matcher)
 if (Test-Path $SettingsFile) {
     $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
@@ -362,10 +367,10 @@ if (Test-Path $SettingsFile) {
     $bashEntry = [PSCustomObject]@{
         matcher = "Bash"
         hooks   = @(
-            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}~/.claude/hooks/block-destructive.sh" },
-            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}~/.claude/hooks/block-push-main.sh" },
-            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}~/.claude/hooks/detect-secrets.sh" },
-            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}~/.claude/hooks/rtk-rewrite.sh" }
+            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}${HooksMsysPath}/block-destructive.sh" },
+            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}${HooksMsysPath}/block-push-main.sh" },
+            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}${HooksMsysPath}/detect-secrets.sh" },
+            [PSCustomObject]@{ type = "command"; command = "${HookPrefix}${HooksMsysPath}/rtk-rewrite.sh" }
         )
     }
 
@@ -400,7 +405,7 @@ if (Test-Path $SettingsFile) {
         $gitCtxEntry = [PSCustomObject]@{
             hooks = @([PSCustomObject]@{
                 type    = "command"
-                command = "${HookPrefix}~/.claude/hooks/git-context.sh"
+                command = "${HookPrefix}${HooksMsysPath}/git-context.sh"
             })
         }
         if ($settings.hooks.PSObject.Properties["SessionStart"]) {
@@ -427,7 +432,7 @@ if (Test-Path $SettingsFile) {
         $bridgeCtxEntry = [PSCustomObject]@{
             hooks = @([PSCustomObject]@{
                 type    = "command"
-                command = "${HookPrefix}~/.claude/hooks/bridge-context.sh"
+                command = "${HookPrefix}${HooksMsysPath}/bridge-context.sh"
             })
         }
         if ($settings.hooks.PSObject.Properties["SessionStart"]) {
@@ -732,12 +737,18 @@ if ($userPath -notmatch [regex]::Escape($LocalBinDir)) {
 # Register Serena with Claude Code (using PowerShell wrapper)
 Write-Host "=== Registering Serena MCP (global) ==="
 if ($HasClaude) {
-    $regResult = & claude mcp add --scope user serena -- powershell -File $SerenaPsDest 2>&1
-    if ($LASTEXITCODE -ne 0 -or $regResult -match "already") {
-        Write-Host "WARN: Serena already registered (or claude CLI not found)"
+    $mcpListSerena = & claude mcp list 2>&1
+    if ($mcpListSerena -match "serena") {
+        Write-Info "serena: already registered in Claude Code"
     }
     else {
-        Write-Info "serena: registered with Claude Code"
+        & claude mcp add --scope user serena -- powershell -File $SerenaPsDest 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "WARN: Serena registration failed (claude CLI not found or conflict)"
+        }
+        else {
+            Write-Info "serena: registered with Claude Code"
+        }
     }
 }
 else {
@@ -780,7 +791,7 @@ if ($HasClaude) {
             Write-Info "marketplace $name`: already added"
         }
         else {
-            $r = & claude plugins marketplace add "github:$repo" 2>&1
+            $r = & claude plugins marketplace add "$repo" 2>&1
             if ($LASTEXITCODE -eq 0) { Write-Info "marketplace $name`: added" }
             else                     { Write-Info "marketplace $name`: failed to add (non-fatal)" }
         }
@@ -844,8 +855,10 @@ if (Test-Path $ImpeccableSkillsSrc) {
     if ($HasGit) {
         Push-Location $ImpeccableDir
         try {
-            git fetch origin 2>&1 | Out-Null
-            git checkout $ImpeccableVersion 2>&1 | Out-Null
+            $prev = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
+            git fetch --quiet origin 2>&1 | Out-Null
+            git checkout --quiet $ImpeccableVersion 2>&1 | Out-Null
+            $ErrorActionPreference = $prev
         }
         catch {
             Write-Info "Warning: Could not update Impeccable cache. Using existing version."
@@ -860,7 +873,9 @@ else {
     }
     else {
         Write-Info "impeccable: cloning pbakaus/impeccable..."
-        git clone https://github.com/pbakaus/impeccable.git $ImpeccableDir 2>&1 | Out-Null
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
+        git clone --quiet https://github.com/pbakaus/impeccable.git $ImpeccableDir 2>&1 | Out-Null
+        $ErrorActionPreference = $prev
         if ($LASTEXITCODE -eq 0) {
             Push-Location $ImpeccableDir
             git checkout $ImpeccableVersion 2>&1 | Out-Null

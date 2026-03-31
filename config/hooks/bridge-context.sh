@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SessionStart hook: Inject current repo's memory graph context
-# Outputs recent decisions, topics, and tasks from the agentic-bridge to stdout.
-# Silently no-ops if the bridge is unreachable or context is empty.
+# Outputs JSON with additionalContext for Claude Code 2.1.85+.
+# Silently outputs empty context if bridge is unreachable or context is empty.
 # Note: set -euo pipefail intentionally omitted — must always exit 0.
 
 # Derive repo slug (same pattern used in skills)
@@ -13,7 +13,7 @@ else
 fi
 
 # Check bridge health — silent exit if unreachable
-if ! curl -sf --max-time 2 "http://localhost:3100/health" &>/dev/null; then
+if ! curl -sf --max-time 2 "http://localhost:3100/health" >/dev/null 2>&1; then
   exit 0
 fi
 
@@ -22,15 +22,31 @@ RESPONSE=$(curl -sf --max-time 5 \
   "http://localhost:3100/memory/context?query=recent+decisions+tasks+topics&repo=${REPO_SLUG}&max_tokens=800&agent=session-start" \
   2>/dev/null) || exit 0
 
-# Validate response
-OK=$(printf '%s\n' "$RESPONSE" | jq -r '.ok // false' 2>/dev/null) || exit 0
-[ "$OK" != "true" ] && exit 0
+[ -z "$RESPONSE" ] && exit 0
 
-# Format each section as [Heading] first-line-of-content
-SECTIONS=$(printf '%s\n' "$RESPONSE" | \
-  jq -r '.data.sections[]? | "[" + .heading + "] " + ((.content // "") | split("\n")[0])' \
-  2>/dev/null) || exit 0
-[ -z "$SECTIONS" ] && exit 0
+# Use Python (always available) to parse JSON and format sections
+CONTEXT=$(python3 -c "
+import sys, json
+try:
+    data = json.loads(sys.stdin.read())
+    if not data.get('ok'):
+        sys.exit(0)
+    sections = data.get('data', {}).get('sections', [])
+    if not sections:
+        sys.exit(0)
+    lines = ['=== Project Memory ===']
+    for s in sections:
+        heading = s.get('heading', '')
+        content = (s.get('content') or '').split('\n')[0]
+        lines.append(f'[{heading}] {content}')
+    print('\n'.join(lines))
+except Exception:
+    sys.exit(0)
+" <<< "$RESPONSE" 2>/dev/null) || exit 0
 
-echo "=== Project Memory ==="
-printf '%s\n' "$SECTIONS"
+[ -z "$CONTEXT" ] && exit 0
+
+# Escape for JSON
+ESCAPED=$(printf '%s' "$CONTEXT" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' '\001' | sed 's/\x01/\\n/g')
+
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}' "$ESCAPED"
